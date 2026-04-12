@@ -18,8 +18,8 @@ RESET  = "\033[0m"
 
 BANNER = f"""
 {CYAN}{BOLD}╔══════════════════════════════════════════════════════════╗
-║              Local AI Planning Agent  v2.0              ║
-║ Models: llama3.1:8b · qwen · gemma4 · llama3.2:latest   ║
+║              Local AI Planning Agent  v2.0               ║
+║ Models: llama3.1:8b · qwen · gemma4 · llama3.2:latest    ║
 ╚══════════════════════════════════════════════════════════╝{RESET}
   Commands:
   {YELLOW}/chat{RESET}  → Enter Chat Mode (conversational)
