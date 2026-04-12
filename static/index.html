@@ -4,77 +4,159 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planner Agent</title>
-    <!-- Google Fonts -->
+    <meta name="description" content="Local AI Planning Agent — Intelligent multi-model orchestration powered by Ollama.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Marked.js for Markdown parsing -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- html2pdf.js for PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
-    <div class="container">
-        <!-- Header -->
-        <header id="header">
-            <h1>✨ Local AI Planning Agent</h1>
-            <p>Intelligent Multi-Model Orchestration &nbsp;•&nbsp; Powered by Ollama</p>
-            <div class="header-models">
-                llama3.1:8b &nbsp;·&nbsp; qwen2.5-coder:7b &nbsp;·&nbsp; gemma4-e2b-it:latest &nbsp;·&nbsp; llama3.2:latest
+<div class="app-shell">
+
+    <!-- ═══════════════════════════════════════ SIDEBAR ═══ -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="app-logo">
+                <span class="logo-icon">✦</span>
+                <span class="logo-text">Planner Agent</span>
             </div>
+            <button class="icon-btn sidebar-toggle-mobile" id="sidebar-close-btn" onclick="closeSidebar()" title="Close sidebar">✕</button>
+        </div>
+
+        <button class="new-chat-btn" id="new-chat-btn" onclick="newChat()">
+            <span>＋</span> New Chat
+        </button>
+
+        <nav class="sidebar-nav">
+            <div class="nav-label">Mode</div>
+            <button class="nav-item active" id="mode-chat-btn" onclick="setMode('chat')">
+                <span class="nav-icon">💬</span> Chat
+            </button>
+            <button class="nav-item" id="mode-plan-btn" onclick="setMode('plan')">
+                <span class="nav-icon">📋</span> Plan This
+            </button>
+        </nav>
+
+        <div class="sidebar-sessions">
+            <div class="nav-label">Recent</div>
+            <div id="session-list" class="session-list">
+                <div class="session-empty">No recent sessions</div>
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="footer-row">
+                <label class="footer-label">Model</label>
+                <select id="chat-model" class="footer-select"></select>
+            </div>
+            <div class="footer-row">
+                <label class="footer-label">Web Search</label>
+                <select id="chat-search" class="footer-select">
+                    <option value="auto">Auto</option>
+                    <option value="on">Force ON</option>
+                    <option value="off">Force OFF</option>
+                </select>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ═══════════════════════════════════════ MAIN PANEL ═══ -->
+    <div class="main-panel">
+
+        <!-- Mobile header -->
+        <header class="mobile-header">
+            <button class="icon-btn" onclick="openSidebar()">☰</button>
+            <span class="mobile-title">✦ Planner Agent</span>
+            <button class="icon-btn" id="plan-panel-toggle" onclick="togglePlanPanel()" title="Show plan">📋</button>
         </header>
 
-        <!-- Unified Chat & Planning View -->
-        <main>
-            <div class="chat-layout">
-                <!-- Left: Chat Area -->
-                <div class="chat-column">
-                    <div id="chat-history" class="chatbot">
-                        <!-- Chat messages injected here -->
-                    </div>
-
-                    <div class="chat-controls">
-                        <textarea id="chat-input" rows="2" placeholder="Type a message… (Enter to send)"></textarea>
-                        
-                        <div class="action-row" style="margin-top: 10px;">
-                            <select id="chat-model" class="model-select" style="max-width: 140px;"></select>
-                            <select id="chat-search" class="model-select" style="max-width: 110px;" title="Web Search for Plans">
-                                <option value="auto">Srch: Auto</option>
-                                <option value="on">Srch: ON</option>
-                                <option value="off">Srch: OFF</option>
-                            </select>
-                            <button id="btn-send-chat" class="btn btn-primary" onclick="sendChat()">💬 Send</button>
-                            <button id="btn-plan-chat" class="btn btn-secondary" onclick="generateChatPlan()">📋 Plan This</button>
-                            <button id="btn-stop-chat" class="btn btn-stop" onclick="stopChat()" disabled>⏹ Stop</button>
-                            <button id="btn-clear-chat" class="btn" onclick="clearChat()">🗑 Clear</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Right: Side Panel for Plans -->
-                <div class="pinned-plan-column">
-                    <div class="section-label">📋 Active Plan</div>
-                    
-                    <div class="run-info-unified">
-                        <span class="info-badge" id="info-task" title="Task Type">🧠 —</span>
-                        <span class="info-badge" id="info-model" title="Model">🤖 —</span>
-                        <span class="info-badge" id="info-search" title="Search State">🔍 —</span>
-                    </div>
-
-                    <div id="chat-plan-output" class="plan-panel">
-                        <em>Type a goal into Chat and press <strong>📋 Plan This</strong> to get started.</em>
-                    </div>
-                    <div class="responsive-row" style="margin-top: 10px;">
-                        <button id="btn-download-chat-plan" class="btn row-col" onclick="downloadChatPlan()" style="display:none;">📥 Markdown</button>
-                        <button id="btn-download-chat-pdf" class="btn row-col" onclick="downloadChatPlanPDF()" style="display:none; color: #f87171; border-color: rgba(248, 113, 113, 0.3);">📄 PDF</button>
-                    </div>
+        <!-- Welcome screen (shown until first message) -->
+        <div class="welcome-screen" id="welcome-screen">
+            <div class="welcome-content">
+                <div class="welcome-logo">✦</div>
+                <h1 class="welcome-title">How can I help you today?</h1>
+                <p class="welcome-subtitle">Chat with your AI assistant or generate a detailed plan for any goal.</p>
+                <div class="prompt-cards">
+                    <button class="prompt-card" onclick="usePrompt('I want to build a SaaS product from scratch')">
+                        <span class="prompt-icon">🚀</span>
+                        <span>Build a SaaS product from scratch</span>
+                    </button>
+                    <button class="prompt-card" onclick="usePrompt('I want to learn machine learning in 3 months')">
+                        <span class="prompt-icon">🧠</span>
+                        <span>Learn machine learning in 3 months</span>
+                    </button>
+                    <button class="prompt-card" onclick="usePrompt('I want to launch a YouTube channel about tech')">
+                        <span class="prompt-icon">🎬</span>
+                        <span>Launch a tech YouTube channel</span>
+                    </button>
+                    <button class="prompt-card" onclick="usePrompt('I want to become a freelance developer')">
+                        <span class="prompt-icon">💼</span>
+                        <span>Become a freelance developer</span>
+                    </button>
                 </div>
             </div>
-        </main>
+        </div>
+
+        <!-- Chat history -->
+        <div class="chat-area" id="chat-history"></div>
+
+        <!-- Input dock -->
+        <div class="input-dock">
+            <div class="input-box">
+                <textarea
+                    id="chat-input"
+                    class="chat-textarea"
+                    placeholder="Message Planner Agent…"
+                    rows="1"
+                ></textarea>
+                <div class="input-actions-right">
+                    <button class="icon-btn stop-btn hidden" id="btn-stop-chat" onclick="stopChat()" title="Stop">⏹</button>
+                    <button class="send-btn" id="btn-send-chat" onclick="sendChat()" title="Send">↑</button>
+                </div>
+            </div>
+            <div class="input-chips">
+                <button class="chip active" id="chip-plan" onclick="triggerPlanMode()">📋 Plan This</button>
+                <span class="chip-divider"></span>
+                <span class="chip-info" id="chip-model-info">Model: —</span>
+                <span class="chip-info" id="chip-search-info">Search: Auto</span>
+            </div>
+        </div>
+
     </div>
 
-    <!-- Main Logic -->
-    <script src="/static/app.js"></script>
+    <!-- ═══════════════════════════════════════ PLAN PANEL ═══ -->
+    <aside class="plan-panel" id="plan-panel">
+        <div class="plan-panel-header">
+            <div class="plan-panel-title">📋 Active Plan</div>
+            <button class="icon-btn" onclick="togglePlanPanel()" title="Close">✕</button>
+        </div>
+
+        <div class="plan-meta-badges" id="plan-meta-badges">
+            <span class="meta-badge badge-task" id="info-task">🧠 —</span>
+            <span class="meta-badge badge-model" id="info-model">🤖 —</span>
+            <span class="meta-badge badge-search" id="info-search">🔍 —</span>
+        </div>
+
+        <div class="plan-content" id="chat-plan-output">
+            <div class="plan-placeholder">
+                <span class="plan-placeholder-icon">📋</span>
+                <p>Type a goal in chat and press<br><strong>📋 Plan This</strong> to get started.</p>
+            </div>
+        </div>
+
+        <div class="plan-panel-footer" id="plan-download-row" style="display:none;">
+            <button class="plan-btn" id="btn-download-chat-plan" onclick="downloadChatPlan()">⬇ Markdown</button>
+            <button class="plan-btn plan-btn-pdf" id="btn-download-chat-pdf" onclick="downloadChatPlanPDF()">📄 PDF</button>
+        </div>
+    </aside>
+
+</div>
+
+<!-- Mobile overlay -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<script src="/static/app.js"></script>
 </body>
 </html>

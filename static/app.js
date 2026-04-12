@@ -1,308 +1,515 @@
-let chatAbortController = null;
+/* ═══════════════════════════════════════════════════════════
+   PLANNER AGENT — MODERN AI CHAT LOGIC
+   ═══════════════════════════════════════════════════════════ */
 
+// ─── State ───────────────────────────────────────────────────
 let chatHistory = [];
 let chatCurrentPlan = "";
+let chatAbortController = null;
+let currentMode = "chat"; // "chat" or "plan"
+let currentSessionId = null;
+let welcomeVisible = true;
 
-// Initialize
+// ─── Init ────────────────────────────────────────────────────
 async function init() {
-    // Fetch models and populate dropdowns
+    await loadModels();
+    renderSessionList();
+    setupAutoResize();
+    updateChipInfo();
+    document.getElementById('chat-search').addEventListener('change', updateChipInfo);
+    document.getElementById('chat-model').addEventListener('change', updateChipInfo);
+}
+
+async function loadModels() {
     try {
         const res = await fetch('/api/models');
         const data = await res.json();
         const models = data.models || [];
-        
-        const chatSelect = document.getElementById('chat-model');
-        
+        const select = document.getElementById('chat-model');
         models.forEach(m => {
-            const opt2 = document.createElement('option');
-            opt2.value = m; opt2.textContent = m;
-            chatSelect.appendChild(opt2);
+            const opt = document.createElement('option');
+            opt.value = m; opt.textContent = m;
+            select.appendChild(opt);
         });
+        updateChipInfo();
     } catch(err) {
         console.error("Failed to load models", err);
     }
 }
 
-// --- Chat & Unified Plan Logic ---
-function appendMessage(role, content) {
-    const chatHist = document.getElementById('chat-history');
-    const msgDiv = document.createElement('div');
-    msgDiv.className = `msg ${role}`;
-    msgDiv.innerHTML = marked.parse(content);
-    chatHist.appendChild(msgDiv);
-    chatHist.scrollTop = chatHist.scrollHeight;
-    return msgDiv;
+function updateChipInfo() {
+    const model = document.getElementById('chat-model').value || '—';
+    const search = document.getElementById('chat-search').value;
+    const searchLabel = { auto: 'Auto', on: 'ON', off: 'OFF' }[search] || 'Auto';
+    const shortModel = model.split(':')[0];
+    document.getElementById('chip-model-info').textContent = `Model: ${shortModel}`;
+    document.getElementById('chip-search-info').textContent = `Search: ${searchLabel}`;
 }
 
+// ─── Auto-resize textarea (like all modern AI chats) ─────────
+function setupAutoResize() {
+    const ta = document.getElementById('chat-input');
+    ta.addEventListener('input', () => {
+        ta.style.height = 'auto';
+        ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
+    });
+    ta.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (currentMode === 'plan') {
+                generateChatPlan();
+            } else {
+                sendChat();
+            }
+        }
+    });
+}
+
+// ─── Mode ────────────────────────────────────────────────────
+function setMode(mode) {
+    currentMode = mode;
+    document.getElementById('mode-chat-btn').classList.toggle('active', mode === 'chat');
+    document.getElementById('mode-plan-btn').classList.toggle('active', mode === 'plan');
+    document.getElementById('chip-plan').classList.toggle('active', mode === 'plan');
+    const ta = document.getElementById('chat-input');
+    ta.placeholder = mode === 'plan'
+        ? 'Type your goal and press Enter to generate a plan…'
+        : 'Message Planner Agent…';
+}
+
+function triggerPlanMode() {
+    const val = document.getElementById('chat-input').value.trim();
+    if (val) {
+        generateChatPlan();
+    } else {
+        setMode(currentMode === 'plan' ? 'chat' : 'plan');
+    }
+}
+
+// ─── Welcome Screen ──────────────────────────────────────────
+function hideWelcome() {
+    if (!welcomeVisible) return;
+    welcomeVisible = false;
+    const ws = document.getElementById('welcome-screen');
+    const ca = document.getElementById('chat-history');
+    ws.classList.add('hidden');
+    ca.classList.add('visible');
+}
+
+function showWelcome() {
+    welcomeVisible = true;
+    const ws = document.getElementById('welcome-screen');
+    const ca = document.getElementById('chat-history');
+    ws.classList.remove('hidden');
+    ca.classList.remove('visible');
+}
+
+function usePrompt(text) {
+    document.getElementById('chat-input').value = text;
+    setupAutoResize();
+    const ta = document.getElementById('chat-input');
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
+    ta.focus();
+}
+
+// ─── New Chat ────────────────────────────────────────────────
+function newChat() {
+    // Save current session before clearing
+    if (chatHistory.length > 0) saveSession();
+
+    // Reset state
+    chatHistory = [];
+    chatCurrentPlan = "";
+    currentSessionId = crypto.randomUUID();
+
+    // Reset UI
+    document.getElementById('chat-history').innerHTML = '';
+    showWelcome();
+
+    // Reset plan panel
+    document.getElementById('chat-plan-output').innerHTML = `
+        <div class="plan-placeholder">
+            <span class="plan-placeholder-icon">📋</span>
+            <p>Type a goal in chat and press<br><strong>📋 Plan This</strong> to get started.</p>
+        </div>`;
+    document.getElementById('plan-download-row').style.display = 'none';
+    document.getElementById('info-task').textContent = '🧠 —';
+    document.getElementById('info-model').textContent = '🤖 —';
+    document.getElementById('info-search').textContent = '🔍 —';
+
+    setMode('chat');
+    if (window.innerWidth <= 900) closeSidebar();
+    document.getElementById('chat-input').focus();
+}
+
+// ─── Sidebar Controls ────────────────────────────────────────
+function openSidebar() {
+    document.getElementById('sidebar').classList.add('open');
+    const overlay = document.getElementById('sidebar-overlay');
+    overlay.style.display = 'block';
+    setTimeout(() => overlay.classList.add('active'), 10);
+}
+
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    const overlay = document.getElementById('sidebar-overlay');
+    overlay.classList.remove('active');
+    setTimeout(() => { overlay.style.display = 'none'; }, 250);
+}
+
+// ─── Plan Panel ──────────────────────────────────────────────
+function togglePlanPanel() {
+    document.querySelector('.app-shell').classList.toggle('plan-open');
+}
+
+function openPlanPanel() {
+    document.querySelector('.app-shell').classList.add('plan-open');
+}
+
+// ─── Session History (localStorage) ─────────────────────────
+const SESSIONS_KEY = 'planner_sessions';
+
+function saveSession() {
+    if (chatHistory.length === 0) return;
+    const sessions = getSessions();
+    const id = currentSessionId || crypto.randomUUID();
+    currentSessionId = id;
+    const firstUser = chatHistory.find(m => m.role === 'user');
+    const title = firstUser ? firstUser.content.slice(0, 50) : 'Session';
+    const idx = sessions.findIndex(s => s.id === id);
+    const entry = { id, title, ts: Date.now(), history: chatHistory, plan: chatCurrentPlan };
+    if (idx >= 0) sessions[idx] = entry;
+    else sessions.unshift(entry);
+    // Keep 20 sessions max
+    if (sessions.length > 20) sessions.pop();
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+    renderSessionList();
+}
+
+function getSessions() {
+    try { return JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]'); }
+    catch { return []; }
+}
+
+function renderSessionList() {
+    const sessions = getSessions();
+    const container = document.getElementById('session-list');
+    if (sessions.length === 0) {
+        container.innerHTML = '<div class="session-empty">No recent sessions</div>';
+        return;
+    }
+    container.innerHTML = sessions.map(s => `
+        <button class="session-item ${s.id === currentSessionId ? 'active' : ''}"
+                onclick="loadSession('${s.id}')" title="${escapeHtml(s.title)}">
+            ${escapeHtml(s.title)}
+        </button>
+    `).join('');
+}
+
+function loadSession(id) {
+    const sessions = getSessions();
+    const session = sessions.find(s => s.id === id);
+    if (!session) return;
+
+    // Save current session first
+    if (chatHistory.length > 0) saveSession();
+
+    // Load session
+    currentSessionId = id;
+    chatHistory = session.history || [];
+    chatCurrentPlan = session.plan || '';
+
+    // Rebuild chat UI
+    const chatHist = document.getElementById('chat-history');
+    chatHist.innerHTML = '';
+    chatHistory.forEach(m => {
+        if (m.role === 'user') _renderUserMsg(m.content);
+        else if (m.role === 'assistant') _renderAssistantMsg(m.content);
+    });
+    hideWelcome();
+    chatHist.scrollTop = chatHist.scrollHeight;
+
+    // Restore plan if any
+    if (chatCurrentPlan) {
+        document.getElementById('chat-plan-output').innerHTML = marked.parse(chatCurrentPlan);
+        document.getElementById('plan-download-row').style.display = 'flex';
+        openPlanPanel();
+    }
+
+    renderSessionList();
+    if (window.innerWidth <= 900) closeSidebar();
+}
+
+function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ─── Message Rendering Helpers ───────────────────────────────
+function _renderUserMsg(text) {
+    const chatHist = document.getElementById('chat-history');
+    const el = document.createElement('div');
+    el.className = 'msg user';
+    el.innerHTML = `<div class="msg-inner"><div class="msg-bubble">${escapeHtml(text)}</div></div>`;
+    chatHist.appendChild(el);
+    chatHist.scrollTop = chatHist.scrollHeight;
+    return el;
+}
+
+function _renderAssistantMsg(content, withCursor = false) {
+    const chatHist = document.getElementById('chat-history');
+    const el = document.createElement('div');
+    el.className = 'msg assistant';
+    el.innerHTML = `
+        <div class="msg-inner">
+            <div class="msg-avatar">✦</div>
+            <div class="msg-body">
+                <div class="msg-meta-label">Planner Agent</div>
+                <div class="msg-content">${marked.parse(content)}</div>
+                ${withCursor ? '<span class="cursor"></span>' : ''}
+            </div>
+        </div>`;
+    chatHist.appendChild(el);
+    chatHist.scrollTop = chatHist.scrollHeight;
+    return el;
+}
+
+function _renderSystemMsg(html) {
+    const chatHist = document.getElementById('chat-history');
+    const el = document.createElement('div');
+    el.className = 'msg system';
+    el.innerHTML = `<div class="msg-inner"><div class="msg-body">${html}</div></div>`;
+    chatHist.appendChild(el);
+    chatHist.scrollTop = chatHist.scrollHeight;
+    return el;
+}
+
+// ─── Chat ────────────────────────────────────────────────────
 async function sendChat() {
     const inputEl = document.getElementById('chat-input');
     const text = inputEl.value.trim();
-    if(!text) return;
+    if (!text) return;
 
     const modelChoice = document.getElementById('chat-model').value;
-    inputEl.value = "";
-    
-    appendMessage('user', text);
-    
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+
+    hideWelcome();
+    _renderUserMsg(text);
+
     const btnSend = document.getElementById('btn-send-chat');
-    const btnPlan = document.getElementById('btn-plan-chat');
     const btnStop = document.getElementById('btn-stop-chat');
-    
     btnSend.disabled = true;
-    btnPlan.disabled = true;
-    btnStop.disabled = false;
+    btnStop.classList.remove('hidden');
 
     chatAbortController = new AbortController();
-    
-    const assistantMsgDiv = appendMessage('assistant', `<em>⏳ Waiting in queue...</em><span class="cursor"></span>`);
-    let currentResponse = "";
+
+    const assistantEl = _renderAssistantMsg('', true);
+    const contentDiv = assistantEl.querySelector('.msg-content');
+    let currentResponse = '';
 
     try {
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                message: text, 
-                history: chatHistory, 
+            body: JSON.stringify({
+                message: text,
+                history: chatHistory,
                 model_choice: modelChoice,
-                current_plan: chatCurrentPlan 
+                current_plan: chatCurrentPlan
             }),
             signal: chatAbortController.signal
         });
 
         const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let buffer = "";
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-
             buffer += decoder.decode(value, { stream: true });
-            
-            const lines = buffer.split("\n\n");
-            buffer = lines.pop();
+            const parts = buffer.split('\n\n');
+            buffer = parts.pop();
 
-            for (const chunk of lines) {
+            for (const chunk of parts) {
                 if (!chunk.trim()) continue;
-                
-                const [eventLine, dataLine] = chunk.split("\n");
-                const event = eventLine.replace("event: ", "").trim();
+                const [eventLine, dataLine] = chunk.split('\n');
+                const event = eventLine.replace('event: ', '').trim();
                 let data = {};
-                try { data = JSON.parse(dataLine.replace("data: ", "")); } catch(e) {}
+                try { data = JSON.parse(dataLine.replace('data: ', '')); } catch(e) {}
 
-                if (event === "metadata") {
-                    assistantMsgDiv.innerHTML = `<span class="msg-meta">🤖 ${data.model}</span><div class="msg-content"></div><span class="cursor"></span>`;
-                } else if (event === "message") {
-                    currentResponse += data.content || "";
-                    const contentDiv = assistantMsgDiv.querySelector('.msg-content');
-                    if (contentDiv) {
-                        contentDiv.innerHTML = marked.parse(currentResponse);
-                    } else {
-                        assistantMsgDiv.innerHTML = marked.parse(currentResponse) + '<span class="cursor"></span>';
-                    }
-                    document.getElementById('chat-history').scrollTop = document.getElementById('chat-history').scrollHeight;
-                } else if (event === "error") {
-                    currentResponse += "\n\n" + data.content;
-                    assistantMsgDiv.innerHTML = marked.parse(currentResponse);
-                } else if (event === "done") {
-                    break;
+                if (event === 'metadata') {
+                    const metaEl = assistantEl.querySelector('.msg-meta-label');
+                    if (metaEl) metaEl.textContent = `🤖 ${data.model}`;
+                } else if (event === 'message') {
+                    currentResponse += data.content || '';
+                    contentDiv.innerHTML = marked.parse(currentResponse);
+                    document.getElementById('chat-history').scrollTop = 9999;
+                } else if (event === 'error') {
+                    currentResponse += '\n\n' + data.content;
+                    contentDiv.innerHTML = marked.parse(currentResponse);
                 }
             }
         }
-        
-        // Finalize
-        const cursorEl = assistantMsgDiv.querySelector('.cursor');
-        if (cursorEl) cursorEl.remove();
-
-        const contentDiv = assistantMsgDiv.querySelector('.msg-content');
-        if (contentDiv) {
-            contentDiv.innerHTML = marked.parse(currentResponse);
-        } else {
-            assistantMsgDiv.innerHTML = marked.parse(currentResponse);
-        }
-        chatHistory.push({ role: "user", content: text });
-        chatHistory.push({ role: "assistant", content: currentResponse });
-        
     } catch(err) {
-        if(err.name === 'AbortError') {
-            const cursorEl = assistantMsgDiv.querySelector('.cursor');
-            if (cursorEl) cursorEl.remove();
-            assistantMsgDiv.innerHTML += "\n<br><em>⏹ Stopped</em>";
-        } else {
-            const cursorEl = assistantMsgDiv.querySelector('.cursor');
-            if (cursorEl) cursorEl.remove();
-            assistantMsgDiv.innerHTML = `<em>❌ Error: ${err.message}</em>`;
+        if (err.name !== 'AbortError') {
+            contentDiv.innerHTML = `<em>❌ Error: ${err.message}</em>`;
         }
     } finally {
+        // Remove cursor
+        const cursor = assistantEl.querySelector('.cursor');
+        if (cursor) cursor.remove();
+        contentDiv.innerHTML = marked.parse(currentResponse);
+
         btnSend.disabled = false;
-        btnPlan.disabled = false;
-        btnStop.disabled = true;
+        btnStop.classList.add('hidden');
+
+        chatHistory.push({ role: 'user', content: text });
+        chatHistory.push({ role: 'assistant', content: currentResponse });
+        saveSession();
     }
 }
 
+// ─── Plan Generation ─────────────────────────────────────────
 async function generateChatPlan() {
     const inputEl = document.getElementById('chat-input');
     const goal = inputEl.value.trim();
-    if(!goal) return;
+    if (!goal) return;
 
     const modelChoice = document.getElementById('chat-model').value;
     const searchChoice = document.getElementById('chat-search').value;
-    inputEl.value = "";
-    
-    appendMessage('user', `📋 *Plan request:* ${goal}`);
-    const systemMsgDiv = appendMessage('system', '⏳ <em>Waiting in queue...</em>');
-    
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+
+    hideWelcome();
+    _renderUserMsg(`📋 Plan: ${goal}`);
+    const systemEl = _renderSystemMsg('⏳ <em>Generating plan…</em>');
+
+    // Open plan panel
+    openPlanPanel();
     const panelDiv = document.getElementById('chat-plan-output');
-    panelDiv.innerHTML = `<em>Waiting in queue...</em><span class="cursor"></span>`;
-    document.getElementById('btn-download-chat-plan').style.display = 'none';
-    document.getElementById('btn-download-chat-pdf').style.display = 'none';
+    panelDiv.innerHTML = `<em style="color:var(--text-muted)">⏳ Generating plan…</em><span class="cursor"></span>`;
+    document.getElementById('plan-download-row').style.display = 'none';
 
-    document.getElementById('info-task').innerText = "🧠 —";
-    document.getElementById('info-model').innerText = "🤖 ...";
-    document.getElementById('info-search').innerText = "🔍 ...";
+    // Reset badges
+    document.getElementById('info-task').textContent = '🧠 …';
+    document.getElementById('info-model').textContent = '🤖 …';
+    document.getElementById('info-search').textContent = '🔍 …';
 
-    chatCurrentPlan = "";
-    
-    const chatContextText = chatHistory.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join("\n");
-    
-    // Using same plan backend
+    chatCurrentPlan = '';
+
     const btnSend = document.getElementById('btn-send-chat');
-    const btnPlan = document.getElementById('btn-plan-chat');
     const btnStop = document.getElementById('btn-stop-chat');
-    
     btnSend.disabled = true;
-    btnPlan.disabled = true;
-    btnStop.disabled = false;
+    btnStop.classList.remove('hidden');
 
     chatAbortController = new AbortController();
+    const chatContextText = chatHistory
+        .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+        .join('\n');
 
     try {
         const response = await fetch('/api/plan', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ goal, model_choice: modelChoice, use_search: searchChoice, chat_context: chatContextText }),
+            body: JSON.stringify({
+                goal,
+                model_choice: modelChoice,
+                use_search: searchChoice,
+                chat_context: chatContextText
+            }),
             signal: chatAbortController.signal
         });
 
         const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let buffer = "";
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-
             buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n\n");
-            buffer = lines.pop();
+            const parts = buffer.split('\n\n');
+            buffer = parts.pop();
 
-            for (const chunk of lines) {
+            for (const chunk of parts) {
                 if (!chunk.trim()) continue;
-                const [eventLine, dataLine] = chunk.split("\n");
-                const event = eventLine.replace("event: ", "").trim();
+                const [eventLine, dataLine] = chunk.split('\n');
+                const event = eventLine.replace('event: ', '').trim();
                 let data = {};
-                try { data = JSON.parse(dataLine.replace("data: ", "")); } catch(e) {}
+                try { data = JSON.parse(dataLine.replace('data: ', '')); } catch(e) {}
 
-                if (event === "metadata") {
-                    document.getElementById('info-task').innerText = data.badge;
-                    document.getElementById('info-model').innerText = data.model;
-                    document.getElementById('info-search').innerText = data.search;
-                } else if (event === "update") {
-                    chatCurrentPlan = data.content || "";
+                if (event === 'metadata') {
+                    document.getElementById('info-task').textContent = data.badge;
+                    document.getElementById('info-model').textContent = data.model;
+                    document.getElementById('info-search').textContent = data.search;
+                } else if (event === 'update') {
+                    chatCurrentPlan = data.content || '';
                     panelDiv.innerHTML = marked.parse(chatCurrentPlan) + '<span class="cursor"></span>';
                 }
             }
         }
-        
+
+        // Finalize plan
+        const cursor = panelDiv.querySelector('.cursor');
+        if (cursor) cursor.remove();
         panelDiv.innerHTML = marked.parse(chatCurrentPlan);
-        document.getElementById('btn-download-chat-plan').style.display = 'inline-block';
-        document.getElementById('btn-download-chat-pdf').style.display = 'inline-block';
-        
-        systemMsgDiv.innerHTML = `✅ <strong>Plan generated!</strong> See the 📋 Plan Panel on the right → <br><em>Goal: ${goal}</em>`;
-        chatHistory.push({ role: "user", content: `📋 *Plan request:* ${goal}` });
-        chatHistory.push({ role: "assistant", content: `✅ **Plan generated!** See the **📋 Plan Panel** on the right →\n\n> *Goal: ${goal}*` });
+        document.getElementById('plan-download-row').style.display = 'flex';
+
+        systemEl.querySelector('.msg-body').innerHTML =
+            `✅ <strong>Plan ready!</strong> <em>${goal}</em>`;
+
+        chatHistory.push({ role: 'user', content: `📋 Plan: ${goal}` });
+        chatHistory.push({ role: 'assistant', content: `✅ **Plan generated!**\n\n> *Goal: ${goal}*` });
+        saveSession();
+
     } catch(err) {
-        if(err.name === 'AbortError') {
-             systemMsgDiv.innerHTML = "⏹ Stopped by user";
-             panelDiv.innerHTML = "<em>⏹ Stopped by user</em>";
+        if (err.name === 'AbortError') {
+            systemEl.querySelector('.msg-body').textContent = '⏹ Stopped';
+            panelDiv.innerHTML = '<em style="color:var(--text-muted)">⏹ Stopped</em>';
         } else {
-             systemMsgDiv.innerHTML = `❌ Failed: ${err.message}`;
+            systemEl.querySelector('.msg-body').innerHTML = `❌ ${err.message}`;
         }
     } finally {
+        const cursor = panelDiv.querySelector('.cursor');
+        if (cursor) cursor.remove();
         btnSend.disabled = false;
-        btnPlan.disabled = false;
-        btnStop.disabled = true;
+        btnStop.classList.add('hidden');
+        setMode('chat');
     }
 }
 
 function stopChat() {
-    if(chatAbortController) chatAbortController.abort();
+    if (chatAbortController) chatAbortController.abort();
 }
 
-function clearChat() {
-    document.getElementById('chat-history').innerHTML = "";
-    document.getElementById('chat-plan-output').innerHTML = "<em>Type a goal into Chat and press <strong>📋 Plan This</strong> to get started.</em>";
-    document.getElementById('btn-download-chat-plan').style.display = "none";
-    document.getElementById('btn-download-chat-pdf').style.display = "none";
-    document.getElementById('info-task').innerText = "🧠 —";
-    document.getElementById('info-model').innerText = "🤖 —";
-    document.getElementById('info-search').innerText = "🔍 —";
-    chatHistory = [];
-    chatCurrentPlan = "";
-}
-
+// ─── Downloads ───────────────────────────────────────────────
 async function downloadChatPlan() {
-    await triggerDownload(chatCurrentPlan);
-}
-
-async function downloadChatPlanPDF() {
-    if(!chatCurrentPlan) return;
-    const element = document.createElement('div');
-    element.className = 'pdf-export';
-    element.innerHTML = marked.parse(chatCurrentPlan);
-    const opt = {
-        margin:       1,
-        filename:     'ai_chat_plan.pdf',
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-    html2pdf().set(opt).from(element).save();
-}
-
-// Global download helper hitting the post route
-async function triggerDownload(content) {
-    if(!content) return;
-    
-    // We can do a POST form submission to trigger a real file download in the browser natively
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '/api/download';
-    form.target = '_blank'; // Optional
-
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'plan_text'; // the backend expects JSON body, but we need HTML form urlencoded if we submit conventionally.
-    // Wait, typical download is easier with a blob
-    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+    if (!chatCurrentPlan) return;
+    const blob = new Blob([chatCurrentPlan], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "ai_plan.md";
-    document.body.appendChild(a);
-    a.click();
+    const a = document.createElement('a');
+    a.href = url; a.download = 'ai_plan.md';
+    document.body.appendChild(a); a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
 
-// Enter-to-send bindings
-document.getElementById('chat-input').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendChat();
-    }
-});
+async function downloadChatPlanPDF() {
+    if (!chatCurrentPlan) return;
+    const element = document.createElement('div');
+    element.className = 'pdf-export';
+    element.innerHTML = marked.parse(chatCurrentPlan);
+    const opt = {
+        margin: 0.75,
+        filename: 'ai_plan.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(element).save();
+}
 
-// Run Init
+// ─── Boot ─────────────────────────────────────────────────────
 window.onload = init;
