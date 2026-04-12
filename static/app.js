@@ -1,18 +1,6 @@
-// View Switching
-function switchTab(viewName) {
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    
-    document.getElementById(`tab-${viewName}-btn`).classList.add('active');
-    document.getElementById(`view-${viewName}`).classList.add('active');
-}
-
-// Variables for aborting fetches
-let planAbortController = null;
 let chatAbortController = null;
 
 let chatHistory = [];
-let plannerCurrentPlan = "";
 let chatCurrentPlan = "";
 
 // Initialize
@@ -23,14 +11,9 @@ async function init() {
         const data = await res.json();
         const models = data.models || [];
         
-        const plannerSelect = document.getElementById('planner-model');
         const chatSelect = document.getElementById('chat-model');
         
         models.forEach(m => {
-            const opt1 = document.createElement('option');
-            opt1.value = m; opt1.textContent = m;
-            plannerSelect.appendChild(opt1);
-            
             const opt2 = document.createElement('option');
             opt2.value = m; opt2.textContent = m;
             chatSelect.appendChild(opt2);
@@ -40,124 +23,7 @@ async function init() {
     }
 }
 
-// --- Planner Logic ---
-async function generatePlan() {
-    const goalInput = document.getElementById('planner-goal');
-    const goal = goalInput.value.trim();
-    if(!goal) return;
-
-    const modelChoice = document.getElementById('planner-model').value;
-    const searchChoice = document.getElementById('planner-search').value;
-    const btnGenerate = document.getElementById('btn-generate-plan');
-    const btnStop = document.getElementById('btn-stop-plan');
-    const btnDownload = document.getElementById('btn-download-plan');
-    const btnDownloadPDF = document.getElementById('btn-download-pdf');
-    const outputDiv = document.getElementById('plan-output');
-    
-    // UI Reset
-    btnGenerate.disabled = true;
-    btnStop.disabled = false;
-    btnDownload.style.display = 'none';
-    btnDownloadPDF.style.display = 'none';
-    outputDiv.innerHTML = `<em>⏳ Waiting in queue...</em><span class="cursor"></span>`;
-    
-    document.getElementById('info-task').innerText = "Waiting...";
-    document.getElementById('info-model').innerText = "Waiting...";
-    document.getElementById('info-search').innerText = "Waiting...";
-
-    plannerCurrentPlan = "";
-    planAbortController = new AbortController();
-
-    try {
-        const response = await fetch('/api/plan', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ goal, model_choice: modelChoice, use_search: searchChoice }),
-            signal: planAbortController.signal
-        });
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let buffer = "";
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            
-            // Process SSE
-            const lines = buffer.split("\n\n");
-            buffer = lines.pop(); // Keep the incomplete part
-
-            for (const chunk of lines) {
-                if (!chunk.trim()) continue;
-                
-                const [eventLine, dataLine] = chunk.split("\n");
-                const event = eventLine.replace("event: ", "").trim();
-                let data = {};
-                try {
-                    data = JSON.parse(dataLine.replace("data: ", ""));
-                } catch(e) {}
-
-                if (event === "metadata") {
-                    document.getElementById('info-task').innerText = data.badge;
-                    document.getElementById('info-model').innerText = data.model;
-                    document.getElementById('info-search').innerText = data.search;
-                } else if (event === "update") {
-                    plannerCurrentPlan = data.content || "";
-                    outputDiv.innerHTML = marked.parse(plannerCurrentPlan) + '<span class="cursor"></span>';
-                } else if (event === "error") {
-                    outputDiv.innerHTML = marked.parse(data.content);
-                } else if (event === "done") {
-                    break;
-                }
-            }
-        }
-        
-        // Remove cursor
-        outputDiv.innerHTML = marked.parse(plannerCurrentPlan);
-        btnDownload.style.display = 'inline-block';
-        btnDownloadPDF.style.display = 'inline-block';
-    } catch(err) {
-        if(err.name === 'AbortError') {
-            const cursorEl = outputDiv.querySelector('.cursor');
-            if (cursorEl) cursorEl.remove();
-            outputDiv.innerHTML += "\n<br><em>⏹ Stopped by user</em>";
-        } else {
-            console.error(err);
-            outputDiv.innerHTML = `<em>❌ Error: ${err.message}</em>`;
-        }
-    } finally {
-        btnGenerate.disabled = false;
-        btnStop.disabled = true;
-    }
-}
-
-function stopPlan() {
-    if(planAbortController) planAbortController.abort();
-}
-
-async function downloadPlan() {
-    await triggerDownload(plannerCurrentPlan);
-}
-
-async function downloadPlanPDF() {
-    if(!plannerCurrentPlan) return;
-    const element = document.createElement('div');
-    element.className = 'pdf-export';
-    element.innerHTML = marked.parse(plannerCurrentPlan);
-    const opt = {
-        margin:       1,
-        filename:     'ai_plan.pdf',
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-    html2pdf().set(opt).from(element).save();
-}
-
-// --- Chat Logic ---
+// --- Chat & Unified Plan Logic ---
 function appendMessage(role, content) {
     const chatHist = document.getElementById('chat-history');
     const msgDiv = document.createElement('div');
@@ -292,6 +158,10 @@ async function generateChatPlan() {
     document.getElementById('btn-download-chat-plan').style.display = 'none';
     document.getElementById('btn-download-chat-pdf').style.display = 'none';
 
+    document.getElementById('info-task').innerText = "🧠 —";
+    document.getElementById('info-model').innerText = "🤖 ...";
+    document.getElementById('info-search').innerText = "🔍 ...";
+
     chatCurrentPlan = "";
     
     const chatContextText = chatHistory.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join("\n");
@@ -334,7 +204,11 @@ async function generateChatPlan() {
                 let data = {};
                 try { data = JSON.parse(dataLine.replace("data: ", "")); } catch(e) {}
 
-                if (event === "update") {
+                if (event === "metadata") {
+                    document.getElementById('info-task').innerText = data.badge;
+                    document.getElementById('info-model').innerText = data.model;
+                    document.getElementById('info-search').innerText = data.search;
+                } else if (event === "update") {
                     chatCurrentPlan = data.content || "";
                     panelDiv.innerHTML = marked.parse(chatCurrentPlan) + '<span class="cursor"></span>';
                 }
@@ -368,9 +242,12 @@ function stopChat() {
 
 function clearChat() {
     document.getElementById('chat-history').innerHTML = "";
-    document.getElementById('chat-plan-output').innerHTML = "<em>No plan yet. Type a goal and click <strong>📋 Plan This</strong>.</em>";
+    document.getElementById('chat-plan-output').innerHTML = "<em>Type a goal into Chat and press <strong>📋 Plan This</strong> to get started.</em>";
     document.getElementById('btn-download-chat-plan').style.display = "none";
     document.getElementById('btn-download-chat-pdf').style.display = "none";
+    document.getElementById('info-task').innerText = "🧠 —";
+    document.getElementById('info-model').innerText = "🤖 —";
+    document.getElementById('info-search').innerText = "🔍 —";
     chatHistory = [];
     chatCurrentPlan = "";
 }

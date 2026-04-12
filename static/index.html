@@ -25,73 +25,8 @@
             </div>
         </header>
 
-        <!-- Tab Navigation -->
-        <div class="tab-nav">
-            <button id="tab-planner-btn" class="tab-btn active" onclick="switchTab('planner')">📋 Planner</button>
-            <button id="tab-chat-btn" class="tab-btn" onclick="switchTab('chat')">💬 Chat</button>
-        </div>
-
-        <!-- Planner Tab View -->
-        <main id="view-planner" class="view active">
-            <div class="input-section">
-                <label for="planner-goal">Your Goal</label>
-                <textarea id="planner-goal" rows="2" placeholder='e.g. "I want to build a SaaS product from scratch"'></textarea>
-                
-                <div class="responsive-row" style="margin-top: 16px;">
-                    <div class="row-col">
-                        <label for="planner-model" style="margin-top: 0;">Model</label>
-                        <select id="planner-model" class="model-select"></select>
-                    </div>
-                    <div class="row-col">
-                        <label for="planner-search" style="margin-top: 0;">Web Search</label>
-                        <select id="planner-search" class="model-select">
-                            <option value="auto">Auto (Recommended)</option>
-                            <option value="on">Force ON</option>
-                            <option value="off">Force OFF</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="action-row">
-                    <button id="btn-generate-plan" class="btn btn-primary" onclick="generatePlan()">⚡ Generate Plan</button>
-                    <button id="btn-stop-plan" class="btn btn-stop" onclick="stopPlan()" disabled>⏹ Stop</button>
-                    <button id="btn-download-plan" class="btn" onclick="downloadPlan()" style="display:none;">📥 Markdown</button>
-                    <button id="btn-download-pdf" class="btn" onclick="downloadPlanPDF()" style="display:none; color: #f87171; border-color: rgba(248, 113, 113, 0.3);">📄 PDF</button>
-                </div>
-            </div>
-
-            <hr class="divider">
-
-            <div class="planner-results">
-                <!-- Left metrics side -->
-                <div class="run-info">
-                    <div class="section-label">Run Info</div>
-                    <div class="info-card">
-                        <label>Task Type</label>
-                        <div id="info-task" class="info-val">—</div>
-                    </div>
-                    <div class="info-card">
-                        <label>Model</label>
-                        <div id="info-model" class="info-val">—</div>
-                    </div>
-                    <div class="info-card">
-                        <label>Web Search</label>
-                        <div id="info-search" class="info-val">—</div>
-                    </div>
-                </div>
-
-                <!-- Right output side -->
-                <div class="plan-output-container">
-                    <div class="section-label">Generated Plan</div>
-                    <div id="plan-output" class="plan-panel">
-                        <em>Your plan will appear here...</em>
-                    </div>
-                </div>
-            </div>
-        </main>
-
-        <!-- Chat Tab View -->
-        <main id="view-chat" class="view">
+        <!-- Unified Chat & Planning View -->
+        <main>
             <div class="chat-layout">
                 <!-- Left: Chat Area -->
                 <div class="chat-column">
@@ -119,10 +54,16 @@
 
                 <!-- Right: Side Panel for Plans -->
                 <div class="pinned-plan-column">
-                    <div class="section-label">📋 Plan Panel</div>
-                    <p style="color:var(--text-secondary); font-size:0.8rem; margin-top:-8px; margin-bottom:12px;">Plans generated stay pinned while you chat →</p>
+                    <div class="section-label">📋 Active Plan</div>
+                    
+                    <div class="run-info-unified">
+                        <span class="info-badge" id="info-task" title="Task Type">🧠 —</span>
+                        <span class="info-badge" id="info-model" title="Model">🤖 —</span>
+                        <span class="info-badge" id="info-search" title="Search State">🔍 —</span>
+                    </div>
+
                     <div id="chat-plan-output" class="plan-panel">
-                        <em>No plan yet. Type a goal and click <strong>📋 Plan This</strong>.</em>
+                        <em>Type a goal into Chat and press <strong>📋 Plan This</strong> to get started.</em>
                     </div>
                     <div class="responsive-row" style="margin-top: 10px;">
                         <button id="btn-download-chat-plan" class="btn row-col" onclick="downloadChatPlan()" style="display:none;">📥 Markdown</button>
