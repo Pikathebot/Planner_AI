@@ -16,6 +16,7 @@ async function init() {
     renderSessionList();
     setupAutoResize();
     updateChipInfo();
+    setMode('chat');
     document.getElementById('chat-search').addEventListener('change', updateChipInfo);
     document.getElementById('chat-model').addEventListener('change', updateChipInfo);
 }
