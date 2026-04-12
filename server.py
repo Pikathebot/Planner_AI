@@ -20,6 +20,7 @@ from agent.classifier import classify_task
 from agent.model_manager import ModelManager
 from agent.search_gate import needs_search
 from agent.planner import stream_planner_async
+from logger_config import log_chat
 
 # Logging setup
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -132,6 +133,8 @@ async def api_chat(req: ChatRequest):
             async with inference_lock:
                 logger.info("Chat requested. Model: %s", model_name)
                 yield f"event: metadata\ndata: {json.dumps({'model': model_name, 'badge': task_badge})}\n\n"
+                
+                current_response = ""
 
                 if override:
                     await asyncio.to_thread(_model_manager.switch_to_name, override)
@@ -146,7 +149,11 @@ async def api_chat(req: ChatRequest):
                 async for chunk in llm.astream(lc_messages):
                     text = _get_text(chunk.content)
                     if text:
+                        current_response += text
                         yield f"event: message\ndata: {json.dumps({'content': text})}\n\n"
+                
+                # Log the completed chat
+                log_chat(req.message, model_name, current_response)
                     
             yield "event: done\ndata: {}\n\n"
         except Exception as e:

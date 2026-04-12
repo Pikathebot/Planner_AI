@@ -56,13 +56,17 @@ function setupAutoResize() {
     ta.addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            if (currentMode === 'plan') {
-                generateChatPlan();
-            } else {
-                sendChat();
-            }
+            handleSendMessage();
         }
     });
+}
+
+function handleSendMessage() {
+    if (currentMode === 'plan') {
+        generateChatPlan();
+    } else {
+        sendChat();
+    }
 }
 
 // ─── Mode ────────────────────────────────────────────────────

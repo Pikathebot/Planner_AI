@@ -16,6 +16,7 @@ from langgraph.prebuilt import create_react_agent
 from agent.classifier import classify_task
 from agent.model_manager import ModelManager
 from agent.search_gate import needs_search
+from logger_config import log_run
 
 logger = logging.getLogger(__name__)
 
@@ -226,21 +227,7 @@ async def stream_planner_async(goal: str, model_manager: ModelManager, model_ove
 
     # Auto-log after completion
     model_name = model_manager.get_model_name() or "unknown"
-    await asyncio.to_thread(log_run, goal, task_type, model_name, final_plan)
+    log_run(goal, task_type, model_name, final_plan)
 
 
-def log_run(goal: str, task_type: str, model: str, plan: str, log_path: str = "log.txt"):
-    """Append a timestamped run entry to the log file."""
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    separator = "=" * 60
-    entry = (
-        f"\n{separator}\n"
-        f"Timestamp : {timestamp}\n"
-        f"Goal      : {goal}\n"
-        f"Task Type : {task_type}\n"
-        f"Model     : {model}\n"
-        f"{'-' * 60}\n"
-        f"{plan}\n"
-    )
-    with open(log_path, "a", encoding="utf-8") as f:
-        f.write(entry)
+

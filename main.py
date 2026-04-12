@@ -6,7 +6,8 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from config import MODEL_MAP
 from agent.classifier import classify_task
 from agent.model_manager import ModelManager
-from agent.planner import run_planner, log_run, _get_text
+from agent.planner import run_planner, _get_text
+from logger_config import log_run, log_chat
 
 # ── ANSI color codes ──────────────────────────────────────────────────────────
 CYAN   = "\033[96m"
@@ -109,6 +110,8 @@ def chat_loop(model_manager: ModelManager, initial_override: str | None = None):
                 print(content, end="", flush=True)
             print() # Newline after response
             history.append(AIMessage(content=full_response))
+            # Log chat interaction
+            log_chat(msg, model_manager.get_model_name(), full_response)
         except Exception as e:
             print(f"\n{RED}[Error] Chat failed: {e}{RESET}")
 
