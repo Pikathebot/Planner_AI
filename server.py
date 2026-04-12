@@ -19,7 +19,7 @@ from config import AUTO_CHOICE, MODEL_OPTIONS, MODEL_MAP, TASK_BADGES
 from agent.classifier import classify_task
 from agent.model_manager import ModelManager
 from agent.search_gate import needs_search
-from agent.planner import stream_planner_async
+from agent.planner import stream_planner_async, _search_tool
 from logger_config import log_chat
 
 # Logging setup
@@ -71,6 +71,7 @@ class ChatRequest(BaseModel):
     message: str
     history: list[dict]
     model_choice: str
+    use_search: str = "auto"
     current_plan: str = ""
 
 class PlanRequest(BaseModel):
@@ -144,7 +145,32 @@ async def api_chat(req: ChatRequest):
                 llm = _model_manager.get_llm()
                 
                 lc_messages = _build_lc_history(req.history, getattr(req, "current_plan", ""))
-                lc_messages.append(HumanMessage(content=req.message))
+                
+                # Search Integration
+                perform_search = False
+                if req.use_search == "on":
+                    perform_search = True
+                elif req.use_search == "off":
+                    perform_search = False
+                else:
+                    perform_search = needs_search(req.message)
+                
+                user_msg_content = req.message
+                if perform_search:
+                    yield f"event: metadata\ndata: {json.dumps({'status': 'Searching the web...'})}\n\n"
+                    try:
+                        results = await asyncio.to_thread(_search_tool.run, req.message)
+                        user_msg_content = (
+                            f"User Query: {req.message}\n\n"
+                            f"Relevant search results (use these to inform your answer):\n"
+                            f"{results}\n\n"
+                            f"Based on the above, answer the user: {req.message}"
+                        )
+                        yield f"event: metadata\ndata: {json.dumps({'status': 'Search complete. Generating answer...'})}\n\n"
+                    except Exception as e:
+                        logger.warning("Search failed: %s", e)
+
+                lc_messages.append(HumanMessage(content=user_msg_content))
                 
                 async for chunk in llm.astream(lc_messages):
                     text = _get_text(chunk.content)

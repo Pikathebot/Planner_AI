@@ -338,6 +338,7 @@ async function sendChat() {
                 message: text,
                 history: chatHistory,
                 model_choice: modelChoice,
+                use_search: document.getElementById('chat-search').value,
                 current_plan: chatCurrentPlan
             }),
             signal: chatAbortController.signal
@@ -363,7 +364,12 @@ async function sendChat() {
 
                 if (event === 'metadata') {
                     const metaEl = assistantEl.querySelector('.msg-meta-label');
-                    if (metaEl) metaEl.textContent = `🤖 ${data.model}`;
+                    if (data.model && metaEl) {
+                        metaEl.textContent = `🤖 ${data.model}`;
+                    }
+                    if (data.status) {
+                        contentDiv.innerHTML = `<span style="color: var(--text-muted); font-style: italic;">${data.status}</span>`;
+                    }
                 } else if (event === 'message') {
                     currentResponse += data.content || '';
                     contentDiv.innerHTML = marked.parse(currentResponse);

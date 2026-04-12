@@ -9,7 +9,8 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from config import MODEL_MAP
 from agent.classifier import classify_task
 from agent.model_manager import ModelManager
-from agent.planner import run_planner, _get_text
+from agent.search_gate import needs_search
+from agent.planner import run_planner, _get_text, _search_tool
 from logger_config import log_run, log_chat
 
 from rich.console import Console
@@ -127,7 +128,7 @@ def show_history():
         table.add_row(s["id"], s["timestamp"], s["title"])
     console.print(table)
 
-def chat_loop(model_manager: ModelManager, initial_override: str | None, current_history: list):
+def chat_loop(model_manager: ModelManager, initial_override: str | None, current_history: list, search_mode: str):
     console.print(Panel.fit("[bold green]=== CHAT MODE ENABLED ===[/bold green]\nType [yellow]/plan[/yellow] to go back.", border_style="green"))
     
     current_override = initial_override
@@ -176,7 +177,31 @@ def chat_loop(model_manager: ModelManager, initial_override: str | None, current
             model_manager.switch_to(task_type)
             
         llm = model_manager.get_llm()
-        history.append(HumanMessage(content=msg))
+        
+        # Search Integration
+        perform_search = False
+        if search_mode == "on":
+            perform_search = True
+        elif search_mode == "off":
+            perform_search = False
+        else:
+            perform_search = needs_search(msg)
+            
+        user_content = msg
+        if perform_search:
+            console.print("[dim italic]🔍 Searching the web...[/dim italic]")
+            try:
+                results = _search_tool.run(msg)
+                user_content = (
+                    f"User Query: {msg}\n\n"
+                    f"Relevant search results (use these to inform your answer):\n"
+                    f"{results}\n\n"
+                    f"Based on the above, answer the user: {msg}"
+                )
+            except Exception as e:
+                console.print(f"[red]Search failed: {e}[/red]")
+                
+        history.append(HumanMessage(content=user_content))
         
         console.print(f"\n[bold reverse] AI ({model_manager.get_model_name()}) [/bold reverse] ", end="")
         full_response = ""
@@ -227,7 +252,7 @@ def main():
             continue
 
         if goal.lower() == "/chat":
-            result, session_override, active_history = chat_loop(_model_manager, session_override, active_history)
+            result, session_override, active_history = chat_loop(_model_manager, session_override, active_history, search_mode)
             if result == "exit":
                 console.print("\n[yellow]Exiting. Goodbye![/yellow]")
                 break
