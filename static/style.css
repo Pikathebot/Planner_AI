@@ -360,6 +360,16 @@ textarea:focus {
     text-align: center;
 }
 
+.msg-meta {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 6px;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+}
+
 .chat-controls {
     background: var(--glass-bg);
     padding: 16px;

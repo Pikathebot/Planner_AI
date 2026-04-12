@@ -56,11 +56,11 @@ async function generatePlan() {
     btnGenerate.disabled = true;
     btnStop.disabled = false;
     btnDownload.style.display = 'none';
-    outputDiv.innerHTML = `<em>⏳ Loading model...</em><span class="cursor"></span>`;
+    outputDiv.innerHTML = `<em>⏳ Waiting in queue...</em><span class="cursor"></span>`;
     
-    document.getElementById('info-task').innerText = "—";
-    document.getElementById('info-model').innerText = "—";
-    document.getElementById('info-search').innerText = "—";
+    document.getElementById('info-task').innerText = "Waiting...";
+    document.getElementById('info-model').innerText = "Waiting...";
+    document.getElementById('info-search').innerText = "Waiting...";
 
     plannerCurrentPlan = "";
     planAbortController = new AbortController();
@@ -167,7 +167,7 @@ async function sendChat() {
 
     chatAbortController = new AbortController();
     
-    const assistantMsgDiv = appendMessage('assistant', `<span class="cursor"></span>`);
+    const assistantMsgDiv = appendMessage('assistant', `<em>⏳ Waiting in queue...</em><span class="cursor"></span>`);
     let currentResponse = "";
 
     try {
@@ -200,10 +200,15 @@ async function sendChat() {
                 try { data = JSON.parse(dataLine.replace("data: ", "")); } catch(e) {}
 
                 if (event === "metadata") {
-                    // Optional: show model info
+                    assistantMsgDiv.innerHTML = `<span class="msg-meta">🤖 ${data.model}</span><div class="msg-content"></div><span class="cursor"></span>`;
                 } else if (event === "message") {
                     currentResponse += data.content || "";
-                    assistantMsgDiv.innerHTML = marked.parse(currentResponse) + '<span class="cursor"></span>';
+                    const contentDiv = assistantMsgDiv.querySelector('.msg-content');
+                    if (contentDiv) {
+                        contentDiv.innerHTML = marked.parse(currentResponse);
+                    } else {
+                        assistantMsgDiv.innerHTML = marked.parse(currentResponse) + '<span class="cursor"></span>';
+                    }
                     document.getElementById('chat-history').scrollTop = document.getElementById('chat-history').scrollHeight;
                 } else if (event === "error") {
                     currentResponse += "\n\n" + data.content;
@@ -215,7 +220,12 @@ async function sendChat() {
         }
         
         // Finalize
-        assistantMsgDiv.innerHTML = marked.parse(currentResponse);
+        const contentDiv = assistantMsgDiv.querySelector('.msg-content');
+        if (contentDiv) {
+            contentDiv.innerHTML = marked.parse(currentResponse);
+        } else {
+            assistantMsgDiv.innerHTML = marked.parse(currentResponse);
+        }
         chatHistory.push({ role: "user", content: text });
         chatHistory.push({ role: "assistant", content: currentResponse });
         
@@ -241,10 +251,10 @@ async function generateChatPlan() {
     inputEl.value = "";
     
     appendMessage('user', `📋 *Plan request:* ${goal}`);
-    const systemMsgDiv = appendMessage('system', '⏳ <em>Generating structured plan...</em>');
+    const systemMsgDiv = appendMessage('system', '⏳ <em>Waiting in queue...</em>');
     
     const panelDiv = document.getElementById('chat-plan-output');
-    panelDiv.innerHTML = `<em>Generating...</em><span class="cursor"></span>`;
+    panelDiv.innerHTML = `<em>Waiting in queue...</em><span class="cursor"></span>`;
     document.getElementById('btn-download-chat-plan').style.display = 'none';
 
     chatCurrentPlan = "";

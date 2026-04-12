@@ -4,6 +4,7 @@ import traceback
 import os
 import secrets
 import threading
+import asyncio
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -18,7 +19,7 @@ from config import AUTO_CHOICE, MODEL_OPTIONS, MODEL_MAP, TASK_BADGES
 from agent.classifier import classify_task
 from agent.model_manager import ModelManager
 from agent.search_gate import needs_search
-from agent.planner import stream_planner
+from agent.planner import stream_planner_async
 
 # Logging setup
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -37,11 +38,27 @@ def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Basic"},
         )
-    return credentials.username
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="Planner Agent Custom UI", dependencies=[Depends(verify_credentials)])
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Nothing specific needed
+    yield
+    # Shutdown: Release GPU memory by stopping the current model
+    logger.info("Server shutting down - unloading model from memory...")
+    try:
+        # stop_current_model is synchronous but we can run it in a thread or just call it
+        _model_manager.stop_current_model()
+    except Exception as e:
+        logger.warning("Error unloading model during shutdown: %s", e)
 
-inference_lock = threading.Lock()
+app = FastAPI(
+    title="Planner Agent Custom UI", 
+    dependencies=[Depends(verify_credentials)],
+    lifespan=lifespan
+)
+
+inference_lock = asyncio.Lock()
 
 # Mount static folder
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -100,25 +117,26 @@ def read_root():
 
 @app.post("/api/chat")
 async def api_chat(req: ChatRequest):
-    def chat_generator():
+    async def chat_generator():
         try:
             model_name, task_type, task_badge = _resolve_model(req.model_choice, req.message)
             override = None if req.model_choice == AUTO_CHOICE else req.model_choice
             
-            logger.info("Chat requested. Model: %s", model_name)
-            yield f"event: metadata\ndata: {json.dumps({'model': model_name, 'badge': task_badge})}\n\n"
+            async with inference_lock:
+                logger.info("Chat requested. Model: %s", model_name)
+                yield f"event: metadata\ndata: {json.dumps({'model': model_name, 'badge': task_badge})}\n\n"
 
-            with inference_lock:
                 if override:
-                    _model_manager.switch_to_name(override)
+                    await asyncio.to_thread(_model_manager.switch_to_name, override)
                 else:
-                    _model_manager.switch_to(task_type)
+                    await asyncio.to_thread(_model_manager.switch_to, task_type)
+                
                 llm = _model_manager.get_llm()
                 
                 lc_messages = _build_lc_history(req.history)
                 lc_messages.append(HumanMessage(content=req.message))
                 
-                for chunk in llm.stream(lc_messages):
+                async for chunk in llm.astream(lc_messages):
                     text = _get_text(chunk.content)
                     if text:
                         yield f"event: message\ndata: {json.dumps({'content': text})}\n\n"
@@ -133,26 +151,26 @@ async def api_chat(req: ChatRequest):
 
 @app.post("/api/plan")
 async def api_plan(req: PlanRequest):
-    def plan_generator():
+    async def plan_generator():
         try:
             model_name, task_type, task_badge = _resolve_model(req.model_choice, req.goal)
             search_needed = needs_search(req.goal)
             search_str = "✅ Enabled" if search_needed else "❌ Not needed"
             
-            logger.info("Plan requested. Model: %s", model_name)
-            meta = {
-                "model": model_name, 
-                "badge": task_badge, 
-                "search": search_str,
-                "task": task_type
-            }
-            yield f"event: metadata\ndata: {json.dumps(meta)}\n\n"
-            
             override = None if req.model_choice == AUTO_CHOICE else req.model_choice
             
-            with inference_lock:
-                # stream_planner yields accumulated full string text step-by-step
-                for partial in stream_planner(req.goal, _model_manager, override):
+            async with inference_lock:
+                logger.info("Plan requested. Model: %s", model_name)
+                meta = {
+                    "model": model_name, 
+                    "badge": task_badge, 
+                    "search": search_str,
+                    "task": task_type
+                }
+                yield f"event: metadata\ndata: {json.dumps(meta)}\n\n"
+                
+                # stream_planner_async yields accumulated full string text step-by-step
+                async for partial in stream_planner_async(req.goal, _model_manager, override):
                     if partial:
                         yield f"event: update\ndata: {json.dumps({'content': partial})}\n\n"
             

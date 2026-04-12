@@ -168,25 +168,29 @@ def run_planner(goal: str, model_manager: ModelManager, model_override: str | No
     return final_plan
 
 
-def stream_planner(goal: str, model_manager: ModelManager, model_override: str | None = None):
+import asyncio
+
+async def stream_planner_async(goal: str, model_manager: ModelManager, model_override: str | None = None):
     """
-    Generator version — yields partial markdown strings for real-time streaming (Gradio).
+    Async Generator version — yields partial markdown strings for real-time streaming (Gradio).
     Search is run manually and injected into the prompt.
     If model_override is set, skips the classifier and uses that model directly.
     """
     task_type = classify_task(goal)
 
     if model_override:
-        model_manager.switch_to_name(model_override)
+        await asyncio.to_thread(model_manager.switch_to_name, model_override)
     else:
-        model_manager.switch_to(task_type)
+        await asyncio.to_thread(model_manager.switch_to, task_type)
+        
     llm = model_manager.get_llm()
 
+    # Search is a blocking network call, run in thread
     search_needed = needs_search(goal)
 
     if search_needed:
         yield "> 🔍 **Searching the web...** *This may take a moment.*\n\n"
-        user_message = _build_prompt(goal, search_needed)
+        user_message = await asyncio.to_thread(_build_prompt, goal, search_needed)
         yield "> ✅ **Search complete.** Generating plan...\n\n"
     else:
         user_message = goal
@@ -200,7 +204,7 @@ def stream_planner(goal: str, model_manager: ModelManager, model_override: str |
     }
 
     final_plan = ""
-    for chunk in app.stream(inputs, stream_mode="values"):
+    async for chunk in app.astream(inputs, stream_mode="values"):
         last_message = chunk["messages"][-1]
         if last_message.type == "ai" and last_message.content:
             final_plan = _get_text(last_message.content)
@@ -208,7 +212,7 @@ def stream_planner(goal: str, model_manager: ModelManager, model_override: str |
 
     # Auto-log after completion
     model_name = model_manager.get_model_name() or "unknown"
-    log_run(goal, task_type, model_name, final_plan)
+    await asyncio.to_thread(log_run, goal, task_type, model_name, final_plan)
 
 
 def log_run(goal: str, task_type: str, model: str, plan: str, log_path: str = "log.txt"):
