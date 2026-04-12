@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planner Agent</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <div class="container">
+        <!-- Header -->
+        <header id="header">
+            <h1>✨ Local AI Planning Agent</h1>
+            <p>Intelligent Multi-Model Orchestration &nbsp;•&nbsp; Powered by Ollama</p>
+            <div class="header-models">
+                llama3.1:8b &nbsp;·&nbsp; qwen2.5-coder:7b &nbsp;·&nbsp; gemma4-e2b-it:latest &nbsp;·&nbsp; llama3.2:latest
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button id="tab-planner-btn" class="tab-btn active" onclick="switchTab('planner')">📋 Planner</button>
+            <button id="tab-chat-btn" class="tab-btn" onclick="switchTab('chat')">💬 Chat</button>
+        </div>
+
+        <!-- Planner Tab View -->
+        <main id="view-planner" class="view active">
+            <div class="input-section">
+                <label for="planner-goal">Your Goal</label>
+                <textarea id="planner-goal" rows="2" placeholder='e.g. "I want to build a SaaS product from scratch"'></textarea>
+                
+                <label for="planner-model">Model</label>
+                <select id="planner-model" class="model-select"></select>
+
+                <div class="action-row">
+                    <button id="btn-generate-plan" class="btn btn-primary" onclick="generatePlan()">⚡ Generate Plan</button>
+                    <button id="btn-stop-plan" class="btn btn-stop" onclick="stopPlan()" disabled>⏹ Stop</button>
+                    <button id="btn-download-plan" class="btn" onclick="downloadPlan()" style="display:none;">📥 Download</button>
+                </div>
+            </div>
+
+            <hr class="divider">
+
+            <div class="planner-results">
+                <!-- Left metrics side -->
+                <div class="run-info">
+                    <div class="section-label">Run Info</div>
+                    <div class="info-card">
+                        <label>Task Type</label>
+                        <div id="info-task" class="info-val">—</div>
+                    </div>
+                    <div class="info-card">
+                        <label>Model</label>
+                        <div id="info-model" class="info-val">—</div>
+                    </div>
+                    <div class="info-card">
+                        <label>Web Search</label>
+                        <div id="info-search" class="info-val">—</div>
+                    </div>
+                </div>
+
+                <!-- Right output side -->
+                <div class="plan-output-container">
+                    <div class="section-label">Generated Plan</div>
+                    <div id="plan-output" class="plan-panel">
+                        <em>Your plan will appear here...</em>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Chat Tab View -->
+        <main id="view-chat" class="view">
+            <div class="chat-layout">
+                <!-- Left: Chat Area -->
+                <div class="chat-column">
+                    <div id="chat-history" class="chatbot">
+                        <!-- Chat messages injected here -->
+                    </div>
+
+                    <div class="chat-controls">
+                        <textarea id="chat-input" rows="2" placeholder="Type a message… (Enter to send)"></textarea>
+                        
+                        <div class="action-row" style="margin-top: 10px;">
+                            <select id="chat-model" class="model-select"></select>
+                            <button id="btn-send-chat" class="btn btn-primary" onclick="sendChat()">💬 Send</button>
+                            <button id="btn-plan-chat" class="btn btn-secondary" onclick="generateChatPlan()">📋 Plan This</button>
+                            <button id="btn-stop-chat" class="btn btn-stop" onclick="stopChat()" disabled>⏹ Stop</button>
+                            <button id="btn-clear-chat" class="btn" onclick="clearChat()">🗑 Clear</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Side Panel for Plans -->
+                <div class="pinned-plan-column">
+                    <div class="section-label">📋 Plan Panel</div>
+                    <p style="color:var(--text-secondary); font-size:0.8rem; margin-top:-8px; margin-bottom:12px;">Plans generated stay pinned while you chat →</p>
+                    <div id="chat-plan-output" class="plan-panel">
+                        <em>No plan yet. Type a goal and click <strong>📋 Plan This</strong>.</em>
+                    </div>
+                    <button id="btn-download-chat-plan" class="btn" onclick="downloadChatPlan()" style="display:none; margin-top: 10px; width: 100%;">📥 Download Plan</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Main Logic -->
+    <script src="/static/app.js"></script>
+</body>
+</html>
