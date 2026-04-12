@@ -1,7 +1,12 @@
 import logging
 import json
 import traceback
-from fastapi import FastAPI
+import os
+import secrets
+import threading
+from dotenv import load_dotenv
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.responses import HTMLResponse, StreamingResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -19,7 +24,24 @@ from agent.planner import stream_planner
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Planner Agent Custom UI")
+load_dotenv()
+
+security = HTTPBasic()
+
+def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
+    correct_username = secrets.compare_digest(credentials.username, os.getenv("AUTH_USERNAME", "admin"))
+    correct_password = secrets.compare_digest(credentials.password, os.getenv("AUTH_PASSWORD", "password123"))
+    if not (correct_username and correct_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
+
+app = FastAPI(title="Planner Agent Custom UI", dependencies=[Depends(verify_credentials)])
+
+inference_lock = threading.Lock()
 
 # Mount static folder
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -86,19 +108,20 @@ async def api_chat(req: ChatRequest):
             logger.info("Chat requested. Model: %s", model_name)
             yield f"event: metadata\ndata: {json.dumps({'model': model_name, 'badge': task_badge})}\n\n"
 
-            if override:
-                _model_manager.switch_to_name(override)
-            else:
-                _model_manager.switch_to(task_type)
-            llm = _model_manager.get_llm()
-            
-            lc_messages = _build_lc_history(req.history)
-            lc_messages.append(HumanMessage(content=req.message))
-            
-            for chunk in llm.stream(lc_messages):
-                text = _get_text(chunk.content)
-                if text:
-                    yield f"event: message\ndata: {json.dumps({'content': text})}\n\n"
+            with inference_lock:
+                if override:
+                    _model_manager.switch_to_name(override)
+                else:
+                    _model_manager.switch_to(task_type)
+                llm = _model_manager.get_llm()
+                
+                lc_messages = _build_lc_history(req.history)
+                lc_messages.append(HumanMessage(content=req.message))
+                
+                for chunk in llm.stream(lc_messages):
+                    text = _get_text(chunk.content)
+                    if text:
+                        yield f"event: message\ndata: {json.dumps({'content': text})}\n\n"
                     
             yield "event: done\ndata: {}\n\n"
         except Exception as e:
@@ -127,10 +150,11 @@ async def api_plan(req: PlanRequest):
             
             override = None if req.model_choice == AUTO_CHOICE else req.model_choice
             
-            # stream_planner yields accumulated full string text step-by-step
-            for partial in stream_planner(req.goal, _model_manager, override):
-                if partial:
-                    yield f"event: update\ndata: {json.dumps({'content': partial})}\n\n"
+            with inference_lock:
+                # stream_planner yields accumulated full string text step-by-step
+                for partial in stream_planner(req.goal, _model_manager, override):
+                    if partial:
+                        yield f"event: update\ndata: {json.dumps({'content': partial})}\n\n"
             
             yield "event: done\ndata: {}\n\n"
         except Exception as e:

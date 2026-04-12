@@ -40,3 +40,4 @@ pyvenv.cfg
 # Project specific
 log.txt
 *.log
+*.exe
