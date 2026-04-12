@@ -9,6 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Marked.js for Markdown parsing -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- html2pdf.js for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -35,13 +37,26 @@
                 <label for="planner-goal">Your Goal</label>
                 <textarea id="planner-goal" rows="2" placeholder='e.g. "I want to build a SaaS product from scratch"'></textarea>
                 
-                <label for="planner-model">Model</label>
-                <select id="planner-model" class="model-select"></select>
+                <div class="responsive-row" style="margin-top: 16px;">
+                    <div class="row-col">
+                        <label for="planner-model" style="margin-top: 0;">Model</label>
+                        <select id="planner-model" class="model-select"></select>
+                    </div>
+                    <div class="row-col">
+                        <label for="planner-search" style="margin-top: 0;">Web Search</label>
+                        <select id="planner-search" class="model-select">
+                            <option value="auto">Auto (Recommended)</option>
+                            <option value="on">Force ON</option>
+                            <option value="off">Force OFF</option>
+                        </select>
+                    </div>
+                </div>
 
                 <div class="action-row">
                     <button id="btn-generate-plan" class="btn btn-primary" onclick="generatePlan()">⚡ Generate Plan</button>
                     <button id="btn-stop-plan" class="btn btn-stop" onclick="stopPlan()" disabled>⏹ Stop</button>
-                    <button id="btn-download-plan" class="btn" onclick="downloadPlan()" style="display:none;">📥 Download</button>
+                    <button id="btn-download-plan" class="btn" onclick="downloadPlan()" style="display:none;">📥 Markdown</button>
+                    <button id="btn-download-pdf" class="btn" onclick="downloadPlanPDF()" style="display:none; color: #f87171; border-color: rgba(248, 113, 113, 0.3);">📄 PDF</button>
                 </div>
             </div>
 
@@ -88,7 +103,12 @@
                         <textarea id="chat-input" rows="2" placeholder="Type a message… (Enter to send)"></textarea>
                         
                         <div class="action-row" style="margin-top: 10px;">
-                            <select id="chat-model" class="model-select"></select>
+                            <select id="chat-model" class="model-select" style="max-width: 140px;"></select>
+                            <select id="chat-search" class="model-select" style="max-width: 110px;" title="Web Search for Plans">
+                                <option value="auto">Srch: Auto</option>
+                                <option value="on">Srch: ON</option>
+                                <option value="off">Srch: OFF</option>
+                            </select>
                             <button id="btn-send-chat" class="btn btn-primary" onclick="sendChat()">💬 Send</button>
                             <button id="btn-plan-chat" class="btn btn-secondary" onclick="generateChatPlan()">📋 Plan This</button>
                             <button id="btn-stop-chat" class="btn btn-stop" onclick="stopChat()" disabled>⏹ Stop</button>
@@ -104,7 +124,10 @@
                     <div id="chat-plan-output" class="plan-panel">
                         <em>No plan yet. Type a goal and click <strong>📋 Plan This</strong>.</em>
                     </div>
-                    <button id="btn-download-chat-plan" class="btn" onclick="downloadChatPlan()" style="display:none; margin-top: 10px; width: 100%;">📥 Download Plan</button>
+                    <div class="responsive-row" style="margin-top: 10px;">
+                        <button id="btn-download-chat-plan" class="btn row-col" onclick="downloadChatPlan()" style="display:none;">📥 Markdown</button>
+                        <button id="btn-download-chat-pdf" class="btn row-col" onclick="downloadChatPlanPDF()" style="display:none; color: #f87171; border-color: rgba(248, 113, 113, 0.3);">📄 PDF</button>
+                    </div>
                 </div>
             </div>
         </main>

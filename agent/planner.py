@@ -91,18 +91,21 @@ RULES:
 """
 
 
-def _build_prompt(goal: str, search_needed: bool) -> str:
+def _build_prompt(goal: str, search_needed: bool, chat_context: str = "") -> str:
     """
     Build the user message.
     If search is needed, manually fetch results and inject them into the prompt.
     This is more reliable than letting the model call tools itself.
     """
+    ctx_block = f"Recent Chat Context:\n{chat_context}\n\n" if chat_context else ""
+    
     if not search_needed:
-        return goal
+        return f"{ctx_block}User Goal: {goal}"
 
     try:
         results = _search_tool.run(goal)
         return (
+            f"{ctx_block}"
             f"User Goal: {goal}\n\n"
             f"Relevant search results (use these to inform your plan):\n"
             f"{results}\n\n"
@@ -110,7 +113,7 @@ def _build_prompt(goal: str, search_needed: bool) -> str:
         )
     except Exception as e:
         logger.warning("Search failed (%s), proceeding without it.", e)
-        return goal
+        return f"{ctx_block}User Goal: {goal}"
 
 
 def _get_text(content: str | list) -> str:
@@ -122,7 +125,7 @@ def _get_text(content: str | list) -> str:
     return str(content)
 
 
-def run_planner(goal: str, model_manager: ModelManager, model_override: str | None = None) -> str:
+def run_planner(goal: str, model_manager: ModelManager, model_override: str | None = None, use_search: str = "auto", chat_context: str = "") -> str:
     """
     CLI version — runs the full reasoning loop and returns the final plan string.
     If model_override is set, skips the classifier and uses that model directly.
@@ -139,14 +142,20 @@ def run_planner(goal: str, model_manager: ModelManager, model_override: str | No
         model_manager.switch_to(task_type)
     llm = model_manager.get_llm()
 
-    search_needed = needs_search(goal)
+    if use_search == "on":
+        search_needed = True
+    elif use_search == "off":
+        search_needed = False
+    else:
+        search_needed = needs_search(goal)
+
     if search_needed:
         logger.info("Step 4: Running web search...")
     else:
         logger.info("Step 4: No search needed — using internal reasoning.")
 
     # Build enriched prompt (search results injected if needed)
-    user_message = _build_prompt(goal, search_needed)
+    user_message = _build_prompt(goal, search_needed, chat_context)
 
     logger.info("Step 5-6: Running agent...")
     # No tools passed — the model purely reasons from the enriched prompt
@@ -170,7 +179,7 @@ def run_planner(goal: str, model_manager: ModelManager, model_override: str | No
 
 import asyncio
 
-async def stream_planner_async(goal: str, model_manager: ModelManager, model_override: str | None = None):
+async def stream_planner_async(goal: str, model_manager: ModelManager, model_override: str | None = None, use_search: str = "auto", chat_context: str = ""):
     """
     Async Generator version — yields partial markdown strings for real-time streaming (Gradio).
     Search is run manually and injected into the prompt.
@@ -186,14 +195,19 @@ async def stream_planner_async(goal: str, model_manager: ModelManager, model_ove
     llm = model_manager.get_llm()
 
     # Search is a blocking network call, run in thread
-    search_needed = needs_search(goal)
+    if use_search == "on":
+        search_needed = True
+    elif use_search == "off":
+        search_needed = False
+    else:
+        search_needed = needs_search(goal)
 
     if search_needed:
         yield "> 🔍 **Searching the web...** *This may take a moment.*\n\n"
-        user_message = await asyncio.to_thread(_build_prompt, goal, search_needed)
+        user_message = await asyncio.to_thread(_build_prompt, goal, search_needed, chat_context)
         yield "> ✅ **Search complete.** Generating plan...\n\n"
     else:
-        user_message = goal
+        user_message = _build_prompt(goal, False, chat_context)
 
     app = create_react_agent(llm, [])  # no tools — model reasons from injected context
     inputs = {

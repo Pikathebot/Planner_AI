@@ -20,13 +20,18 @@
 }
 
 body {
-    background-color: var(--bg-primary);
-    background-image: 
-        radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
-        radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
-    background-attachment: fixed;
+    background: linear-gradient(-45deg, #0a0c10, #151a28, #0f121b, #12151d);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
     color: var(--text-primary);
     min-height: 100vh;
+    overflow-x: hidden;
+}
+
+@keyframes gradientBG {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }
 
 .container {
@@ -37,15 +42,21 @@ body {
 
 /* Header */
 header {
-    background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(18, 21, 29, 0.55);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--glass-border);
     border-radius: 24px;
     padding: 40px 20px;
     margin-bottom: 24px;
     text-align: center;
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s ease;
+}
+
+header:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 }
 
 header h1 {
@@ -179,7 +190,27 @@ textarea:focus {
     border: 1px solid var(--glass-border);
     background: rgba(255, 255, 255, 0.05);
     color: var(--text-primary);
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.4s ease, height 0.4s ease;
+}
+
+.btn:hover:not(:disabled)::after {
+    width: 300px;
+    height: 300px;
 }
 
 .btn:hover:not(:disabled) {
@@ -252,14 +283,20 @@ textarea:focus {
 .info-val { font-weight: 500; font-size: 0.95rem; }
 
 .plan-panel {
-    background: var(--glass-bg);
-    backdrop-filter: blur(8px);
+    background: rgba(18, 21, 29, 0.55);
+    backdrop-filter: blur(12px);
     border: 1px solid var(--glass-border);
     border-radius: 16px;
     padding: 32px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
     min-height: 200px;
     line-height: 1.6;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.plan-panel:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.4);
 }
 
 /* Markdown parsing rendering styles */
@@ -320,7 +357,8 @@ textarea:focus {
 }
 
 .chatbot {
-    background: rgba(15, 23, 42, 0.4);
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(10px);
     border: 1px solid var(--glass-border);
     border-radius: 16px;
     height: 500px;
@@ -330,6 +368,7 @@ textarea:focus {
     flex-direction: column;
     gap: 16px;
     margin-bottom: 16px;
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
 }
 
 .msg {
@@ -387,3 +426,114 @@ textarea:focus {
     margin-left: 4px;
 }
 @keyframes blink { 50% { opacity: 0; } }
+
+/* PDF Export Styles */
+.pdf-export {
+    color: #000000 !important;
+    background: #ffffff !important;
+    padding: 20px;
+    font-size: 14px;
+}
+.pdf-export h1, .pdf-export h2, .pdf-export h3, .pdf-export h4, .pdf-export h5, .pdf-export h6 {
+    color: #000000 !important;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+}
+.pdf-export h2 {
+    border-bottom: 1px solid #dddddd;
+    padding-bottom: 5px;
+}
+.pdf-export p, .pdf-export li, .pdf-export td, .pdf-export th, .pdf-export strong, .pdf-export em {
+    color: #111111 !important;
+}
+.pdf-export table, .pdf-export th, .pdf-export td {
+    border: 1px solid #cccccc !important;
+}
+.pdf-export th {
+    background-color: #f3f4f6 !important;
+}
+.pdf-export pre, .pdf-export code {
+    background: #f1f5f9 !important;
+    color: #334155 !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+/* Utility Layouts */
+.responsive-row {
+    display: flex;
+    gap: 16px;
+}
+.row-col {
+    flex: 1;
+}
+
+/* Responsive Design (Mobile & Tablet) */
+@media screen and (max-width: 768px) {
+    .container {
+        padding: 12px;
+    }
+    
+    header {
+        padding: 24px 16px;
+        border-radius: 16px;
+    }
+    
+    header h1 {
+        font-size: 1.8rem;
+    }
+
+    header p {
+        font-size: 0.9rem;
+    }
+
+    .tab-nav {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .tab-btn {
+        flex: 1;
+        text-align: center;
+        padding: 10px 16px;
+        font-size: 0.85rem;
+    }
+
+    .responsive-row {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .planner-results {
+        flex-direction: column;
+    }
+    
+    .chat-layout {
+        flex-direction: column;
+    }
+    
+    .chatbot {
+        height: 60vh;
+    }
+
+    .action-row {
+        flex-wrap: wrap;
+        justify-content: space-between;
+    }
+    
+    .action-row .btn, .action-row select {
+        flex: 1 1 45%; 
+        min-width: 120px;
+        font-size: 0.85rem;
+        padding: 10px 16px;
+        max-width: none !important;
+    }
+    
+    .plan-panel {
+        padding: 16px;
+        min-height: auto;
+    }
+    
+    .plan-panel h1 { font-size: 1.5rem; }
+    .plan-panel h2 { font-size: 1.25rem; }
+    .plan-panel h3 { font-size: 1.1rem; }
+}

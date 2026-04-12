@@ -47,15 +47,18 @@ async function generatePlan() {
     if(!goal) return;
 
     const modelChoice = document.getElementById('planner-model').value;
+    const searchChoice = document.getElementById('planner-search').value;
     const btnGenerate = document.getElementById('btn-generate-plan');
     const btnStop = document.getElementById('btn-stop-plan');
     const btnDownload = document.getElementById('btn-download-plan');
+    const btnDownloadPDF = document.getElementById('btn-download-pdf');
     const outputDiv = document.getElementById('plan-output');
     
     // UI Reset
     btnGenerate.disabled = true;
     btnStop.disabled = false;
     btnDownload.style.display = 'none';
+    btnDownloadPDF.style.display = 'none';
     outputDiv.innerHTML = `<em>⏳ Waiting in queue...</em><span class="cursor"></span>`;
     
     document.getElementById('info-task').innerText = "Waiting...";
@@ -69,7 +72,7 @@ async function generatePlan() {
         const response = await fetch('/api/plan', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ goal, model_choice: modelChoice }),
+            body: JSON.stringify({ goal, model_choice: modelChoice, use_search: searchChoice }),
             signal: planAbortController.signal
         });
 
@@ -115,8 +118,11 @@ async function generatePlan() {
         // Remove cursor
         outputDiv.innerHTML = marked.parse(plannerCurrentPlan);
         btnDownload.style.display = 'inline-block';
+        btnDownloadPDF.style.display = 'inline-block';
     } catch(err) {
         if(err.name === 'AbortError') {
+            const cursorEl = outputDiv.querySelector('.cursor');
+            if (cursorEl) cursorEl.remove();
             outputDiv.innerHTML += "\n<br><em>⏹ Stopped by user</em>";
         } else {
             console.error(err);
@@ -134,6 +140,21 @@ function stopPlan() {
 
 async function downloadPlan() {
     await triggerDownload(plannerCurrentPlan);
+}
+
+async function downloadPlanPDF() {
+    if(!plannerCurrentPlan) return;
+    const element = document.createElement('div');
+    element.className = 'pdf-export';
+    element.innerHTML = marked.parse(plannerCurrentPlan);
+    const opt = {
+        margin:       1,
+        filename:     'ai_plan.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(element).save();
 }
 
 // --- Chat Logic ---
@@ -174,7 +195,12 @@ async function sendChat() {
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: text, history: chatHistory, model_choice: modelChoice }),
+            body: JSON.stringify({ 
+                message: text, 
+                history: chatHistory, 
+                model_choice: modelChoice,
+                current_plan: chatCurrentPlan 
+            }),
             signal: chatAbortController.signal
         });
 
@@ -220,6 +246,9 @@ async function sendChat() {
         }
         
         // Finalize
+        const cursorEl = assistantMsgDiv.querySelector('.cursor');
+        if (cursorEl) cursorEl.remove();
+
         const contentDiv = assistantMsgDiv.querySelector('.msg-content');
         if (contentDiv) {
             contentDiv.innerHTML = marked.parse(currentResponse);
@@ -231,8 +260,12 @@ async function sendChat() {
         
     } catch(err) {
         if(err.name === 'AbortError') {
+            const cursorEl = assistantMsgDiv.querySelector('.cursor');
+            if (cursorEl) cursorEl.remove();
             assistantMsgDiv.innerHTML += "\n<br><em>⏹ Stopped</em>";
         } else {
+            const cursorEl = assistantMsgDiv.querySelector('.cursor');
+            if (cursorEl) cursorEl.remove();
             assistantMsgDiv.innerHTML = `<em>❌ Error: ${err.message}</em>`;
         }
     } finally {
@@ -248,6 +281,7 @@ async function generateChatPlan() {
     if(!goal) return;
 
     const modelChoice = document.getElementById('chat-model').value;
+    const searchChoice = document.getElementById('chat-search').value;
     inputEl.value = "";
     
     appendMessage('user', `📋 *Plan request:* ${goal}`);
@@ -256,8 +290,11 @@ async function generateChatPlan() {
     const panelDiv = document.getElementById('chat-plan-output');
     panelDiv.innerHTML = `<em>Waiting in queue...</em><span class="cursor"></span>`;
     document.getElementById('btn-download-chat-plan').style.display = 'none';
+    document.getElementById('btn-download-chat-pdf').style.display = 'none';
 
     chatCurrentPlan = "";
+    
+    const chatContextText = chatHistory.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join("\n");
     
     // Using same plan backend
     const btnSend = document.getElementById('btn-send-chat');
@@ -274,7 +311,7 @@ async function generateChatPlan() {
         const response = await fetch('/api/plan', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ goal, model_choice: modelChoice }),
+            body: JSON.stringify({ goal, model_choice: modelChoice, use_search: searchChoice, chat_context: chatContextText }),
             signal: chatAbortController.signal
         });
 
@@ -306,6 +343,7 @@ async function generateChatPlan() {
         
         panelDiv.innerHTML = marked.parse(chatCurrentPlan);
         document.getElementById('btn-download-chat-plan').style.display = 'inline-block';
+        document.getElementById('btn-download-chat-pdf').style.display = 'inline-block';
         
         systemMsgDiv.innerHTML = `✅ <strong>Plan generated!</strong> See the 📋 Plan Panel on the right → <br><em>Goal: ${goal}</em>`;
         chatHistory.push({ role: "user", content: `📋 *Plan request:* ${goal}` });
@@ -332,12 +370,28 @@ function clearChat() {
     document.getElementById('chat-history').innerHTML = "";
     document.getElementById('chat-plan-output').innerHTML = "<em>No plan yet. Type a goal and click <strong>📋 Plan This</strong>.</em>";
     document.getElementById('btn-download-chat-plan').style.display = "none";
+    document.getElementById('btn-download-chat-pdf').style.display = "none";
     chatHistory = [];
     chatCurrentPlan = "";
 }
 
 async function downloadChatPlan() {
     await triggerDownload(chatCurrentPlan);
+}
+
+async function downloadChatPlanPDF() {
+    if(!chatCurrentPlan) return;
+    const element = document.createElement('div');
+    element.className = 'pdf-export';
+    element.innerHTML = marked.parse(chatCurrentPlan);
+    const opt = {
+        margin:       1,
+        filename:     'ai_chat_plan.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(element).save();
 }
 
 // Global download helper hitting the post route

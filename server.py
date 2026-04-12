@@ -70,10 +70,13 @@ class ChatRequest(BaseModel):
     message: str
     history: list[dict]
     model_choice: str
+    current_plan: str = ""
 
 class PlanRequest(BaseModel):
     goal: str
     model_choice: str
+    use_search: str = "auto"
+    chat_context: str = ""
 
 class DownloadRequest(BaseModel):
     plan_text: str
@@ -91,8 +94,12 @@ def _resolve_model(model_choice: str, goal: str) -> tuple[str, str, str]:
         return model_choice, task_type, f"{task_badge} *(manual)*"
     return MODEL_MAP.get(task_type, "llama3.1:8b"), task_type, task_badge
 
-def _build_lc_history(history: list) -> list:
-    messages = [SystemMessage(content=CHAT_SYSTEM_PROMPT)]
+def _build_lc_history(history: list, current_plan: str = "") -> list:
+    sys_content = CHAT_SYSTEM_PROMPT
+    if current_plan.strip():
+        sys_content += f"\n\n[CONTEXT: The system previously generated the following plan. You are highly aware of this active plan:]\n{current_plan}"
+        
+    messages = [SystemMessage(content=sys_content)]
     for msg in history:
         role = msg.get("role", "")
         content = msg.get("content", "")
@@ -133,7 +140,7 @@ async def api_chat(req: ChatRequest):
                 
                 llm = _model_manager.get_llm()
                 
-                lc_messages = _build_lc_history(req.history)
+                lc_messages = _build_lc_history(req.history, getattr(req, "current_plan", ""))
                 lc_messages.append(HumanMessage(content=req.message))
                 
                 async for chunk in llm.astream(lc_messages):
@@ -154,8 +161,16 @@ async def api_plan(req: PlanRequest):
     async def plan_generator():
         try:
             model_name, task_type, task_badge = _resolve_model(req.model_choice, req.goal)
-            search_needed = needs_search(req.goal)
-            search_str = "✅ Enabled" if search_needed else "❌ Not needed"
+            
+            if req.use_search == "on":
+                search_needed = True
+                search_str = "✅ Force ON"
+            elif req.use_search == "off":
+                search_needed = False
+                search_str = "❌ Force OFF"
+            else:
+                search_needed = needs_search(req.goal)
+                search_str = "✅ Enabled (Auto)" if search_needed else "❌ Not needed (Auto)"
             
             override = None if req.model_choice == AUTO_CHOICE else req.model_choice
             
@@ -170,7 +185,7 @@ async def api_plan(req: PlanRequest):
                 yield f"event: metadata\ndata: {json.dumps(meta)}\n\n"
                 
                 # stream_planner_async yields accumulated full string text step-by-step
-                async for partial in stream_planner_async(req.goal, _model_manager, override):
+                async for partial in stream_planner_async(req.goal, _model_manager, override, req.use_search, getattr(req, "chat_context", "")):
                     if partial:
                         yield f"event: update\ndata: {json.dumps({'content': partial})}\n\n"
             
