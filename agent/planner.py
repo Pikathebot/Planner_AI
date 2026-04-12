@@ -50,6 +50,7 @@ One clear paragraph explaining what this plan achieves and why the approach is e
 ## Learning Path
 1. **[Topic Name]** — what to learn and why it comes first
 2. **[Topic Name]** — next topic
+   - IMPORTANT: Include direct URLs to external resources, courses, or reference material via markdown links (e.g. [Link Text](http...)) wherever applicable!
 3. Continue as needed...
 
 ## Step-by-step Plan
@@ -159,12 +160,12 @@ def run_planner(goal: str, model_manager: ModelManager, model_override: str | No
     user_message = _build_prompt(goal, search_needed, chat_context)
 
     logger.info("Step 5-6: Running agent...")
-    # No tools passed — the model purely reasons from the enriched prompt
     app = create_react_agent(llm, [])
 
+    sys_prompt = SYSTEM_PROMPT + f"\n- Current System Date/Time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     inputs = {
         "messages": [
-            ("system", SYSTEM_PROMPT),
+            ("system", sys_prompt),
             ("user", user_message),
         ]
     }
@@ -211,9 +212,10 @@ async def stream_planner_async(goal: str, model_manager: ModelManager, model_ove
         user_message = _build_prompt(goal, False, chat_context)
 
     app = create_react_agent(llm, [])  # no tools — model reasons from injected context
+    sys_prompt = SYSTEM_PROMPT + f"\n- Current System Date/Time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     inputs = {
         "messages": [
-            ("system", SYSTEM_PROMPT),
+            ("system", sys_prompt),
             ("user", user_message),
         ]
     }

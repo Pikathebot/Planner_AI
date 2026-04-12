@@ -5,6 +5,7 @@ import os
 import secrets
 import threading
 import asyncio
+import datetime
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -97,7 +98,7 @@ def _resolve_model(model_choice: str, goal: str) -> tuple[str, str, str]:
     return MODEL_MAP.get(task_type, "llama3.1:8b"), task_type, task_badge
 
 def _build_lc_history(history: list, current_plan: str = "") -> list:
-    sys_content = CHAT_SYSTEM_PROMPT
+    sys_content = CHAT_SYSTEM_PROMPT + f"\n- Current System Date/Time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     if current_plan.strip():
         sys_content += f"\n\n[CONTEXT: The system previously generated the following plan. You are highly aware of this active plan:]\n{current_plan}"
         

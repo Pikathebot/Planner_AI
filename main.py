@@ -132,7 +132,8 @@ def chat_loop(model_manager: ModelManager, initial_override: str | None, current
     console.print(Panel.fit("[bold green]=== CHAT MODE ENABLED ===[/bold green]\nType [yellow]/plan[/yellow] to go back.", border_style="green"))
     
     current_override = initial_override
-    history = current_history if current_history else [SystemMessage(content=CHAT_SYSTEM_PROMPT)]
+    sys_prompt = CHAT_SYSTEM_PROMPT + f"\n- Current System Date/Time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    history = current_history if current_history else [SystemMessage(content=sys_prompt)]
     
     while True:
         try:
@@ -236,7 +237,8 @@ def main():
 
     session_override = None
     search_mode = "auto"
-    active_history = [SystemMessage(content=CHAT_SYSTEM_PROMPT)]
+    sys_prompt = CHAT_SYSTEM_PROMPT + f"\n- Current System Date/Time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    active_history = [SystemMessage(content=sys_prompt)]
     active_plan = ""
 
     while True:
@@ -263,7 +265,8 @@ def main():
             break
 
         if goal.lower() == "/clear":
-            active_history = [SystemMessage(content=CHAT_SYSTEM_PROMPT)]
+            sys_prompt = CHAT_SYSTEM_PROMPT + f"\n- Current System Date/Time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            active_history = [SystemMessage(content=sys_prompt)]
             active_plan = ""
             LAST_PLAN_EXPORT = ""
             console.print("[green]Context cleared![/green]")
