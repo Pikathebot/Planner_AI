@@ -204,11 +204,28 @@ function renderSessionList() {
         return;
     }
     container.innerHTML = sessions.map(s => `
-        <button class="session-item ${s.id === currentSessionId ? 'active' : ''}"
-                onclick="loadSession('${s.id}')" title="${escapeHtml(s.title)}">
-            ${escapeHtml(s.title)}
-        </button>
+        <div class="session-item-wrapper ${s.id === currentSessionId ? 'active' : ''}">
+            <button class="session-item" onclick="loadSession('${s.id}')" title="${escapeHtml(s.title)}">
+                ${escapeHtml(s.title)}
+            </button>
+            <button class="session-delete-btn" onclick="deleteSession(event, '${s.id}')" title="Delete session">✕</button>
+        </div>
     `).join('');
+}
+
+function deleteSession(event, id) {
+    if (event) event.stopPropagation();
+    if (!confirm('Are you sure you want to delete this session?')) return;
+    
+    const sessions = getSessions();
+    const newSessions = sessions.filter(s => s.id !== id);
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify(newSessions));
+    
+    if (currentSessionId === id) {
+        newChat();
+    } else {
+        renderSessionList();
+    }
 }
 
 function loadSession(id) {
