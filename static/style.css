@@ -54,13 +54,18 @@
 /* ─── Reset ─────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { height: 100%; overflow: hidden; }
+html {
+    height: 100%;
+    height: -webkit-fill-available;
+    overflow: hidden;
+}
 
 body {
     font-family: 'Inter', system-ui, sans-serif;
     background: var(--bg-base);
     color: var(--text-primary);
     height: 100%;
+    height: -webkit-fill-available;
     overflow: hidden;
     font-size: 15px;
     line-height: 1.6;
@@ -72,6 +77,7 @@ body {
     display: grid;
     grid-template-columns: var(--sidebar-w) 1fr 0px;
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
     transition: grid-template-columns 0.3s var(--ease);
 }
@@ -270,8 +276,10 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
     position: relative;
+    min-width: 0;
 }
 
 /* Mobile header (hidden on desktop) */
@@ -301,6 +309,8 @@ body {
     justify-content: center;
     padding: 32px 24px;
     overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
 }
 
 .welcome-screen.hidden { display: none; }
@@ -380,11 +390,13 @@ body {
 .chat-area {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 24px 0;
-    display: flex;
+    display: none;
     flex-direction: column;
     gap: 0;
-    display: none; /* shown after first message */
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
 }
 
 .chat-area.visible { display: flex; }
@@ -537,6 +549,8 @@ body {
     margin: 0 auto;
     width: 100%;
     flex-shrink: 0;
+    /* Safe area for phones with home indicator */
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
 }
 
 .input-box {
@@ -853,57 +867,118 @@ body {
 
 /* ─── Responsive ─────────────────────────────────────────── */
 @media (max-width: 1100px) {
-    :root { --plan-panel-w: 340px; }
+    :root { --plan-panel-w: 320px; }
 }
 
+/* ── Tablet / Mobile (<= 900px) ── */
 @media (max-width: 900px) {
+
+    /* Grid collapses: only main panel shows */
     .app-shell {
-        grid-template-columns: 0px 1fr 0px !important;
+        grid-template-columns: 1fr !important;
+        grid-template-rows: 1fr;
     }
 
+    /* Sidebar: off-screen drawer */
     .sidebar {
         position: fixed;
-        left: 0; top: 0; bottom: 0;
-        width: var(--sidebar-w);
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 280px;
+        max-width: 85vw;
+        height: 100dvh;
         transform: translateX(-100%);
         transition: transform 0.3s var(--ease);
-        z-index: 30;
+        z-index: 50;
         border-right: 1px solid var(--border-strong);
+        box-shadow: 4px 0 32px rgba(0,0,0,0.6);
     }
 
-    .sidebar.open {
-        transform: translateX(0);
+    .sidebar.open { transform: translateX(0); }
+
+    /* Overlay shows on mobile */
+    .sidebar-overlay {
+        display: block;
+        z-index: 45;
     }
 
-    .sidebar-overlay { display: block; }
+    /* Mobile top bar */
+    .mobile-header {
+        display: flex;
+        flex-shrink: 0;
+    }
 
-    .mobile-header { display: flex; }
+    /* Show close button inside sidebar */
+    .sidebar-toggle-mobile { display: flex !important; }
 
+    /* Main panel: full screen */
+    .main-panel {
+        grid-column: 1;
+        height: 100dvh;
+        height: -webkit-fill-available;
+    }
+
+    /* Plan panel: full-screen overlay from right */
     .plan-panel {
         position: fixed;
-        right: 0; top: 0; bottom: 0;
-        width: 100% !important;
-        max-width: 420px;
+        inset: 0;
+        width: 100vw !important;
+        max-width: 100%;
+        height: 100dvh;
         transform: translateX(100%);
         transition: transform 0.35s var(--ease);
-        z-index: 25;
+        z-index: 40;
+        opacity: 1;
+        border-left: none;
     }
 
     .app-shell.plan-open .plan-panel {
         transform: translateX(0);
-        opacity: 1;
-        width: 100% !important;
+        width: 100vw !important;
     }
 
-    .sidebar-toggle-mobile { display: flex; }
+    /* Input dock: mobile-friendly */
+    .input-dock {
+        padding: 8px 12px;
+        padding-bottom: max(16px, env(safe-area-inset-bottom));
+    }
 
-    .input-dock { padding: 8px 12px 16px; }
-    .msg-inner { padding: 0 14px; }
-    .welcome-title { font-size: 1.5rem; }
-    .prompt-cards { grid-template-columns: 1fr; }
+    .input-box {
+        border-radius: var(--radius-lg);
+        padding: 10px 12px;
+    }
+
+    /* Hide chip divider on narrow screens */
+    .chip-divider { display: none; }
+
+    /* Tighter message padding */
+    .msg-inner { padding: 0 12px; }
+
+    /* User bubble can take more width */
+    .msg.user .msg-bubble { max-width: 92%; }
+
+    /* Welcome screen adjustments */
+    .welcome-screen    { padding: 20px 16px; align-items: flex-start; padding-top: 32px; }
+    .welcome-content   { gap: 12px; align-items: flex-start; text-align: left; }
+    .welcome-logo      { font-size: 2rem; }
+    .welcome-title     { font-size: 1.5rem; }
+    .welcome-subtitle  { font-size: 0.875rem; max-width: 100%; }
+    .prompt-cards      { grid-template-columns: 1fr; gap: 8px; }
+    .prompt-card       { padding: 12px 14px; }
 }
 
+/* ── Very small phones (<= 390px) ── */
+@media (max-width: 390px) {
+    .welcome-title    { font-size: 1.25rem; }
+    .chip             { font-size: 0.72rem; padding: 4px 10px; }
+    .send-btn         { width: 30px; height: 30px; font-size: 1rem; }
+    .stop-btn         { width: 30px; height: 30px; }
+    .footer-select    { font-size: 0.75rem; }
+}
+
+/* ── Desktop only ── */
 @media (min-width: 901px) {
     .sidebar-toggle-mobile { display: none !important; }
-    .mobile-header { display: none !important; }
+    .mobile-header         { display: none !important; }
 }
