@@ -41,3 +41,5 @@ pyvenv.cfg
 log.txt
 *.log
 *.exe
+# Log directory
+log/

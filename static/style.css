@@ -306,7 +306,7 @@ body {
     outline: none;
     cursor: pointer;
     font-family: inherit;
-    max-width: 140px;
+    max-width: 185px;
     transition: border-color 0.15s;
 }
 .footer-select:focus { border-color: var(--accent); }
