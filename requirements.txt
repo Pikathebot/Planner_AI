@@ -1,5 +1,11 @@
-gradio
+fastapi
+uvicorn
+pydantic
+python-dotenv
 langchain-ollama
 langchain-community
+langchain-core
 langgraph
 duckduckgo-search
+rich
+gradio

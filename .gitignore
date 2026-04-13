@@ -41,5 +41,8 @@ pyvenv.cfg
 log.txt
 *.log
 *.exe
+*.zip
+cli_sessions.json
+
 # Log directory
 log/
