@@ -11,7 +11,7 @@ from langchain_core.documents import Document
 logger = logging.getLogger(__name__)
 
 class RAGManager:
-    def __init__(self, persist_directory: str = "chroma_db", model_name: str = "nomic-embed-text"):
+    def __init__(self, persist_directory: str = "chroma_db", model_name: str = "granite-embedding:latest"):
         self.persist_directory = persist_directory
         self.model_name = model_name
         self.embeddings = OllamaEmbeddings(model=self.model_name)
