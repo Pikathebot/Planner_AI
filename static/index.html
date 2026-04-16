@@ -108,6 +108,8 @@
         <!-- Input dock -->
         <div class="input-dock">
             <div class="input-box">
+                <input type="file" id="file-upload-input" multiple hidden accept=".pdf,.txt,.md">
+                <button class="icon-btn upload-btn" id="btn-upload" onclick="triggerFileUpload()" title="Upload Documents (PDF, TXT, MD)">📎</button>
                 <textarea
                     id="chat-input"
                     class="chat-textarea"
@@ -124,6 +126,7 @@
                 <span class="chip-divider"></span>
                 <span class="chip-info" id="chip-model-info">Model: —</span>
                 <span class="chip-info" id="chip-search-info">Search: Auto</span>
+                <span class="chip-info hidden" id="chip-kb-info"><span class="kb-dot"></span> Knowledge Base Active</span>
             </div>
         </div>
 

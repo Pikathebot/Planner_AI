@@ -19,6 +19,7 @@ async function init() {
     setMode('chat');
     document.getElementById('chat-search').addEventListener('change', updateChipInfo);
     document.getElementById('chat-model').addEventListener('change', updateChipInfo);
+    document.getElementById('file-upload-input').addEventListener('change', handleFileUpload);
 }
 
 async function loadModels() {
@@ -144,8 +145,18 @@ function newChat() {
     document.getElementById('info-search').textContent = '🔍 —';
 
     setMode('chat');
+    clearKnowledgeBase();
     if (window.innerWidth <= 900) closeSidebar();
     document.getElementById('chat-input').focus();
+}
+
+async function clearKnowledgeBase() {
+    try {
+        await fetch('/api/knowledge', { method: 'DELETE' });
+        document.getElementById('chip-kb-info').classList.add('hidden');
+    } catch (err) {
+        console.error("Failed to clear knowledge base", err);
+    }
 }
 
 // ─── Sidebar Controls ────────────────────────────────────────
@@ -538,6 +549,50 @@ async function downloadChatPlanPDF() {
         pagebreak: { mode: 'avoid-all' }
     };
     html2pdf().set(opt).from(element).save();
+}
+
+// ─── RAG / File Upload ───────────────────────────────────────
+function triggerFileUpload() {
+    document.getElementById('file-upload-input').click();
+}
+
+async function handleFileUpload(e) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+    }
+
+    // Show loading state in chat
+    const systemEl = _renderSystemMsg(`⏳ <em>Uploading ${files.length} file(s) to knowledge base…</em>`);
+    const btnUpload = document.getElementById('btn-upload');
+    btnUpload.disabled = true;
+    btnUpload.style.opacity = '0.5';
+
+    try {
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        const successCount = data.results.filter(r => r.status === 'success').length;
+        if (successCount > 0) {
+            systemEl.querySelector('.msg-body').innerHTML = `✅ <strong>Knowledge Base Updated!</strong> Added ${successCount} file(s).`;
+            document.getElementById('chip-kb-info').classList.remove('hidden');
+        } else {
+            systemEl.querySelector('.msg-body').innerHTML = `❌ <strong>Upload Failed.</strong> Please check file types (PDF, TXT, MD).`;
+        }
+    } catch (err) {
+        console.error("Upload failed", err);
+        systemEl.querySelector('.msg-body').innerHTML = `❌ <strong>Upload Error:</strong> ${err.message}`;
+    } finally {
+        btnUpload.disabled = false;
+        btnUpload.style.opacity = '1';
+        e.target.value = ''; // Reset input
+    }
 }
 
 // ─── Boot ─────────────────────────────────────────────────────

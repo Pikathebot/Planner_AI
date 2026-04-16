@@ -46,3 +46,9 @@ cli_sessions.json
 
 # Log directory
 log/
+
+#claude.md files (using local gemma4)
+claude.md
+
+#bug-file
+bug.md

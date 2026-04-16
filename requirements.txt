@@ -9,3 +9,7 @@ langgraph
 duckduckgo-search
 rich
 gradio
+chromadb
+pypdf
+langchain-text-splitters
+unstructured
