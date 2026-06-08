@@ -101,7 +101,7 @@ def _resolve_model(model_choice: str, goal: str) -> tuple[str, str, str]:
     task_badge = TASK_BADGES.get(task_type, "🧠 GENERAL")
     if model_choice != AUTO_CHOICE:
         return model_choice, task_type, f"{task_badge} *(manual)*"
-    return MODEL_MAP.get(task_type, "llama3.1:8b"), task_type, task_badge
+    return MODEL_MAP.get(task_type, "gemma-4-12b"), task_type, task_badge
 
 def _build_lc_history(history: list, current_plan: str = "") -> list:
     sys_content = CHAT_SYSTEM_PROMPT + f"\n- Current System Date/Time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"

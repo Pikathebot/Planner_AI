@@ -1,7 +1,7 @@
 @echo off
 TITLE Planner Agent - FastAPI Server
 echo ======================================================
-echo   ✨ LOCAL AI PLANNING AGENT - STARTING SERVER
+echo   LOCAL AI PLANNING AGENT - STARTING SERVER
 echo ======================================================
 echo.
 echo [1/3] Activating Virtual Environment...
@@ -15,6 +15,6 @@ uvicorn server:app --host 0.0.0.0 --port 8000 --log-level info --workers 1
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
-    echo [!] Server failed to start. Ensure Ollama is running and venv is intact.
+    echo [!] Server failed to start. Ensure LM Studio server is running and venv is intact.
     pause
 )

@@ -27,7 +27,7 @@ LAST_PLAN_EXPORT = ""
 BANNER = """[cyan bold]
 ╔══════════════════════════════════════════════════════════╗
 ║              Local AI Planning Agent  v2.0               ║
-║ Models: llama3.1:8b · qwen · gemma4 · llama3.2:latest    ║
+║ Models: Gemma-4 12B · Powered by LM Studio               ║
 ╚══════════════════════════════════════════════════════════╝
 [/cyan bold]
   [bold]Commands:[/bold]
@@ -43,7 +43,7 @@ BANNER = """[cyan bold]
   
   [bold]Manual Model Override:[/bold]
   Prefix your message with [cyan]@model_name[/cyan] to manually select a model.
-  Example: [cyan]@llama3.2:latest[/cyan] How do I bake a cake?
+  Example: [cyan]@gemma-4-12b[/cyan] How do I bake a cake?
 """
 
 CHAT_SYSTEM_PROMPT = """You are a helpful, knowledgeable AI assistant. Be conversational, clear, and concise.
@@ -328,7 +328,7 @@ def main():
                     continue
 
         task_type = classify_task(goal)
-        selected_model = session_override if session_override else MODEL_MAP.get(task_type, "llama3.1:8b")
+        selected_model = session_override if session_override else MODEL_MAP.get(task_type, "gemma-4-12b")
         
         info_panel = Panel.fit(f"Task type: [bold]{task_type.upper()}[/bold]\nModel: [bold]{selected_model}[/bold]\nSearch: [bold]{search_mode}[/bold]", title="Agent Reasoning", border_style="cyan")
         console.print(info_panel)

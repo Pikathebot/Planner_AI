@@ -52,3 +52,5 @@ claude.md
 
 #bug-file
 bug.md
+chroma_db/
+*.sqlite3

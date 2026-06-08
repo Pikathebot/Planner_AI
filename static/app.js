@@ -120,9 +120,9 @@ function usePrompt(text) {
 }
 
 // ─── New Chat ────────────────────────────────────────────────
-function newChat() {
-    // Save current session before clearing
-    if (chatHistory.length > 0) saveSession();
+function newChat(skipSave = false) {
+    // Save current session before clearing, unless explicitly told not to
+    if (!skipSave && chatHistory.length > 0) saveSession();
 
     // Reset state
     chatHistory = [];
@@ -146,6 +146,7 @@ function newChat() {
 
     setMode('chat');
     clearKnowledgeBase();
+    renderSessionList();
     if (window.innerWidth <= 900) closeSidebar();
     document.getElementById('chat-input').focus();
 }
@@ -234,7 +235,7 @@ function deleteSession(event, id) {
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(newSessions));
     
     if (currentSessionId === id) {
-        newChat();
+        newChat(true); // skipSave = true
     } else {
         renderSessionList();
     }

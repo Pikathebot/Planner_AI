@@ -1,31 +1,27 @@
 # Local AI Planner Agent v2.0
 
-A powerful, locally-hosted planning and chat agent powered by Ollama. It features smart model selection based on task type, integrated web search, and a modern custom web interface.
+A powerful, locally-hosted planning and chat agent powered by LM Studio. It features smart model selection based on task type, integrated web search, and a modern custom web interface.
 
 ## ✨ Features
 
 - **Dual Modes**: 
   - **Planning Mode**: Generates detailed, structured plans for complex goals.
   - **Chat Mode**: General conversational assistant with context awareness.
-- **Smart Model Routing**: Automatically selects the best model for the task (Coding, General, Quick, etc.).
+- **Smart Model Routing**: Automatically selects the best model for the task.
 - **Web Search**: Integrates DuckDuckGo search to provide up-to-date information.
 - **Custom Web UI**: A sleek, glassmorphic FastAPI-based web interface.
 - **CLI Interface**: A robust terminal interface with rich markdown rendering and session management.
 - **Session Control**: Save and load conversation history and plans.
-- **Model Unloading**: Automatically releases GPU memory (VRAM) when the server shuts down.
+- **Model Unloading**: Automatically releases GPU memory (VRAM) by unloading unused LLMs using the `lms` CLI.
 
 ## 🛠️ Setup
 
 ### Prerequisites
 
-1.  **Ollama**: Install [Ollama](https://ollama.com/) and ensure it's running.
-2.  **Models**: Pull the required models:
-    ```bash
-    ollama pull llama3.1:8b
-    ollama pull qwen2.5-coder:7b
-    ollama pull gemma4-e2b-it:latest
-    ollama pull llama3.2:latest
-    ```
+1.  **LM Studio**: Install [LM Studio](https://lmstudio.ai/) and ensure the Local Server is running (usually on port `1234`). Make sure the `lms` CLI is initialized.
+2.  **Models**: Download the required models in LM Studio:
+    - `unsloth/gemma-4-12B-it-qat-GGUF` (LLM)
+    - `text-embedding-nomic-embed-text-v1.5` (Embedding)
 3.  **Python**: Version 3.10 or higher.
 
 ### Installation
