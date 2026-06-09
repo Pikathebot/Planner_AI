@@ -6,10 +6,11 @@ import secrets
 import threading
 import asyncio
 import datetime
+import shutil
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from fastapi.responses import HTMLResponse, StreamingResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, PlainTextResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
@@ -21,6 +22,7 @@ from agent.classifier import classify_task
 from agent.model_manager import ModelManager
 from agent.search_gate import needs_search
 from agent.planner import stream_planner_async, _search_tool
+from agent.rag_manager import rag_manager
 from logger_config import log_chat
 
 # Logging setup
@@ -67,6 +69,10 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 _model_manager = ModelManager()
 
+# Ensure temp upload dir exists
+UPLOAD_DIR = "temp_uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 # --- Data Models ---
 class ChatRequest(BaseModel):
     message: str
@@ -95,7 +101,7 @@ def _resolve_model(model_choice: str, goal: str) -> tuple[str, str, str]:
     task_badge = TASK_BADGES.get(task_type, "🧠 GENERAL")
     if model_choice != AUTO_CHOICE:
         return model_choice, task_type, f"{task_badge} *(manual)*"
-    return MODEL_MAP.get(task_type, "llama3.1:8b"), task_type, task_badge
+    return MODEL_MAP.get(task_type, "gemma-4-12b"), task_type, task_badge
 
 def _build_lc_history(history: list, current_plan: str = "") -> list:
     sys_content = CHAT_SYSTEM_PROMPT + f"\n- Current System Date/Time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
@@ -171,6 +177,16 @@ async def api_chat(req: ChatRequest):
                     except Exception as e:
                         logger.warning("Search failed: %s", e)
 
+                # RAG Integration
+                rag_context = await asyncio.to_thread(rag_manager.query_documents, req.message)
+                if rag_context:
+                    user_msg_content = (
+                        f"[KNOWLEDGE BASE CONTEXT]\n{rag_context}\n\n"
+                        f"---\n\n"
+                        f"{user_msg_content}"
+                    )
+                    yield f"event: metadata\ndata: {json.dumps({'status': 'Using knowledge base context...'})}\n\n"
+
                 lc_messages.append(HumanMessage(content=user_msg_content))
                 
                 async for chunk in llm.astream(lc_messages):
@@ -241,6 +257,32 @@ async def api_download(req: DownloadRequest):
         req.plan_text, 
         headers={"Content-Disposition": 'attachment; filename="ai_plan.md"'}
     )
+
+@app.post("/api/upload")
+async def api_upload(files: list[UploadFile] = File(...)):
+    results = []
+    for file in files:
+        file_path = os.path.join(UPLOAD_DIR, file.filename)
+        try:
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            
+            success = await asyncio.to_thread(rag_manager.process_file, file_path)
+            results.append({"filename": file.filename, "status": "success" if success else "failed"})
+            
+            # Clean up temp file
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            logger.error(f"Upload error for {file.filename}: {e}")
+            results.append({"filename": file.filename, "status": f"error: {str(e)}"})
+    
+    return {"results": results}
+
+@app.delete("/api/knowledge")
+async def api_clear_knowledge():
+    success = await asyncio.to_thread(rag_manager.clear_knowledge_base)
+    return {"status": "success" if success else "failed"}
 
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)

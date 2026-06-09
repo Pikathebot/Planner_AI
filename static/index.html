@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Planner Agent</title>
-    <meta name="description" content="Local AI Planning Agent — Intelligent multi-model orchestration powered by Ollama.">
+    <meta name="description" content="Local AI Planning Agent — Intelligent multi-model orchestration powered by LM Studio.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -108,6 +108,8 @@
         <!-- Input dock -->
         <div class="input-dock">
             <div class="input-box">
+                <input type="file" id="file-upload-input" multiple hidden accept=".pdf,.txt,.md">
+                <button class="icon-btn upload-btn" id="btn-upload" onclick="triggerFileUpload()" title="Upload Documents (PDF, TXT, MD)">📎</button>
                 <textarea
                     id="chat-input"
                     class="chat-textarea"
@@ -124,6 +126,7 @@
                 <span class="chip-divider"></span>
                 <span class="chip-info" id="chip-model-info">Model: —</span>
                 <span class="chip-info" id="chip-search-info">Search: Auto</span>
+                <span class="chip-info hidden" id="chip-kb-info"><span class="kb-dot"></span> Knowledge Base Active</span>
             </div>
         </div>
 

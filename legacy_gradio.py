@@ -57,7 +57,7 @@ def _resolve_model(model_choice: str, goal: str) -> tuple[str, str, str]:
 
     if model_choice != AUTO_CHOICE:
         return model_choice, task_type, f"{task_badge}  *(manual)*"
-    return MODEL_MAP.get(task_type, "llama3.1:8b"), task_type, task_badge
+    return MODEL_MAP.get(task_type, "gemma-4-12b"), task_type, task_badge
 
 
 # ── Planner Tab functions ─────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ def generate_plan(goal: str, model_choice: str):
             f"<details>\n<summary>Full traceback (click to expand)</summary>\n\n"
             f"```\n{error_tb}\n```\n\n"
             f"</details>\n\n"
-            f"> 💡 **Tip:** Check that Ollama is running (`ollama serve`) and the model is available (`ollama list`)."
+            f"> 💡 **Tip:** Check that LM Studio is running (using 'lms status') and the model is available (using 'lms ls')."
         )
         yield error_md, task_badge, model_name, search_status, ""
 
@@ -395,9 +395,9 @@ with gr.Blocks(
     gr.HTML("""
     <div id="header">
         <h1>✨ Local AI Planning Agent</h1>
-        <p>Intelligent Multi-Model Orchestration &nbsp;•&nbsp; Powered by Ollama</p>
+        <p>Intelligent Multi-Model Orchestration &nbsp;•&nbsp; Powered by LM Studio</p>
         <div style="margin-top: 12px; font-size: 0.85rem; color: #64748b; font-weight: 500;">
-            llama3.1:8b &nbsp;·&nbsp; qwen2.5-coder:7b &nbsp;·&nbsp; gemma4-e2b-it:latest &nbsp;·&nbsp; llama3.2:latest
+            Gemma-4 12B &nbsp;·&nbsp; Nomic Embed
         </div>
     </div>
     """)
