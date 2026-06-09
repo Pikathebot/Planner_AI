@@ -12,19 +12,21 @@ AUTO_CHOICE = "🤖 Auto (recommended)"
 MODEL_OPTIONS = [
     AUTO_CHOICE, 
     "gemma-4-12b",
+    "qwen2.5-coder-1.5b-instruct",
 ]
 
 # Model registry — maps task type to model name
 MODEL_MAP: dict[TaskType, str] = {
     "general":       "gemma-4-12b",
     "coding":        "gemma-4-12b",
-    "quick":         "gemma-4-12b",
+    "quick":         "qwen2.5-coder-1.5b-instruct",
     "large_context": "gemma-4-12b",
 }
 
-# Per-model context window — tuned for 8GB VRAM on RTX 4060 (using gemma-4-12b at 4K context)
+# Per-model context window — tuned for 8GB VRAM on RTX 4060
 MODEL_CTX: dict[str, int] = {
-    "gemma-4-12b":       4096,
+    "gemma-4-12b":                 4096,
+    "qwen2.5-coder-1.5b-instruct": 4096,
 }
 
 # LM Studio Server Configuration

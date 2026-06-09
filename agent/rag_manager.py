@@ -2,7 +2,7 @@ import os
 import shutil
 import logging
 from typing import List
-from langchain_community.document_loaders import PyPDFLoader, TextLoader, UnstructuredMarkdownLoader
+from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_chroma import Chroma
@@ -19,7 +19,8 @@ class RAGManager:
         self.embeddings = OpenAIEmbeddings(
             base_url=LM_STUDIO_API_URL,
             api_key="lm-studio",
-            model=self.model_name
+            model=self.model_name,
+            check_embedding_ctx_length=False
         )
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
@@ -63,8 +64,6 @@ class RAGManager:
         try:
             if ext == ".pdf":
                 loader = PyPDFLoader(file_path)
-            elif ext == ".md":
-                loader = UnstructuredMarkdownLoader(file_path)
             else:
                 loader = TextLoader(file_path, encoding="utf-8")
             
@@ -117,36 +116,17 @@ class RAGManager:
         """Delete all documents and clear the persistent storage."""
         logger.info("Clearing knowledge base...")
         
-        # 1. Try to delete collection through API if alive
+        # Try to delete collection through API if alive
         if self.vectorstore:
             try:
                 self.vectorstore.delete_collection()
-                logger.debug("Collection deleted via API.")
+                logger.info("Collection deleted via API.")
             except Exception as e:
                 logger.warning(f"Note: Collection could not be deleted via API (may not exist): {e}")
 
-        # 2. Reset state immediately
+        # Reset and re-initialize a fresh store
         self.vectorstore = None
-        
-        # 3. Wipe the directory entirely
-        if os.path.exists(self.persist_directory):
-            import time
-            deleted = False
-            for i in range(3):
-                try:
-                    shutil.rmtree(self.persist_directory)
-                    deleted = True
-                    logger.debug(f"Directory {self.persist_directory} removed.")
-                    break
-                except Exception as e:
-                    logger.warning(f"shutil.rmtree attempt {i+1} failed: {e}")
-                    time.sleep(1)
-            if not deleted:
-                logger.error(f"Failed to wipe {self.persist_directory} after 3 attempts.")
-        
-        # 4. Re-init a fresh store
         try:
-            os.makedirs(self.persist_directory, exist_ok=True)
             self._init_vectorstore()
             logger.info("Knowledge base cleared and re-initialized.")
             return True
